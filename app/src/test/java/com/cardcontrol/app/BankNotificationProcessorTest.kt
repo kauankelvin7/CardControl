@@ -323,6 +323,12 @@ class BankNotificationProcessorTest {
         override suspend fun getAllRecurringChargesSnapshot(): List<com.cardcontrol.app.data.local.RecurringChargeEntity> =
             recurringCharges.toList()
 
+        override suspend fun deleteRecurringCharge(id: Long): Int {
+            val previousSize = recurringCharges.size
+            recurringCharges.removeAll { it.id == id }
+            return previousSize - recurringCharges.size
+        }
+
         override suspend fun getRecurringChargeByMerchantAndCard(merchant: String, cardId: Long): com.cardcontrol.app.data.local.RecurringChargeEntity? =
             recurringCharges.firstOrNull { it.merchant.equals(merchant, ignoreCase = true) && it.cardId == cardId }
 
