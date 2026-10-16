@@ -17,6 +17,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
@@ -200,6 +201,49 @@ fun <T> LiquidPillSelector(
                     color = if (isSelected) TextPrimary else accent,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                )
+            }
+        }
+    }
+}
+
+@Preview(name = "Liquid Glass Design System", showBackground = true, backgroundColor = 0xFF0B0F19)
+@Composable
+private fun LiquidGlassPreview() {
+    CardControlTheme {
+        LiquidAmbientBackground {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
+            ) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .liquidGlassCard(cornerRadius = 20.dp, accentTint = PrimaryAccent)
+                        .padding(20.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text(
+                            "Liquid Glass Card",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = TextPrimary
+                        )
+                        Text(
+                            "Superfície translúcida Obsidian (#0B0F19) com iluminação ambiente e reflexo specular.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = TextSecondary
+                        )
+                        LiquidGlassBar(progress = 0.65f, accentColor = PrimaryAccent)
+                    }
+                }
+
+                LiquidPillSelector(
+                    options = listOf("todos" to "Todos", "nubank" to "Nubank", "itau" to "Itaú"),
+                    selectedId = "nubank",
+                    onSelect = {}
                 )
             }
         }

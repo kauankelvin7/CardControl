@@ -9,7 +9,9 @@ import com.cardcontrol.app.data.local.RecurringChargeEntity
 import com.cardcontrol.app.data.local.SupportedBank
 import com.cardcontrol.app.data.local.TransactionEntity
 import com.cardcontrol.app.security.SecuritySanitizer
+import com.cardcontrol.app.service.AutoCaptureResult
 import com.cardcontrol.app.service.BankNotificationParser
+import com.cardcontrol.app.service.BankNotificationProcessor
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import java.time.Instant
@@ -150,36 +152,24 @@ class CardRepository(private val dao: AppDao) {
     suspend fun resolveCardForNotification(packageName: String, lastFourDigits: String?): CreditCardEntity? =
         (resolveCard(packageName, lastFourDigits) as? CardResolution.Found)?.card
 
+    /**
+     * Processa uma notificação bancária delegando ao [BankNotificationProcessor] canônico.
+     *
+     * Mantém o contrato legado em forma de par (ID da transação, cartão vinculado) para
+     * compatibilidade com testes e fluxos síncronos, aplicando deduplicação de 120s,
+     * trava atômica de captura e desambiguação segura de emissores.
+     */
     suspend fun processBankNotification(
         packageName: String,
         title: String,
         text: String,
         timestamp: Long
     ): Pair<Long, CreditCardEntity?> {
-        val parsed = BankNotificationParser.parse(packageName, title, text, timestamp)
-            ?: return Pair(-1L, null)
-
-        val matchedCard = resolveCardForNotification(packageName, parsed.lastFourDigits)
-            ?: return Pair(-1L, null)
-
-        val holderId = matchedCard.defaultHolderId
-            ?: return Pair(-1L, null)
-
-        val holder = dao.getHolderById(holderId)
-            ?: return Pair(-1L, null)
-
-        val txId = registerExpense(
-            cardId = matchedCard.id,
-            holderId = holder.id,
-            merchant = parsed.merchant,
-            totalAmount = parsed.amount,
-            installmentsCount = parsed.installments,
-            purchaseTimestamp = timestamp,
-            isAutoCaptured = true,
-            dedupHash = parsed.dedupHash
-        )
-
-        return if (txId != -1L) Pair(txId, matchedCard) else Pair(-1L, null)
+        val result = BankNotificationProcessor(dao, this).process(packageName, title, text, timestamp)
+        return when (result) {
+            is AutoCaptureResult.Registered -> Pair(result.transactionId, result.card)
+            is AutoCaptureResult.Ignored -> Pair(-1L, null)
+        }
     }
 
     suspend fun registerExpense(
@@ -247,7 +237,8 @@ class CardRepository(private val dao: AppDao) {
         val detected = com.cardcontrol.app.util.SubscriptionTracker.detectSubscriptions(txs)
         val existingCharges = dao.getAllRecurringChargesSnapshot().toMutableList()
 
-        // Repair duplicates created by earlier versions before syncing new detections.
+        // Saneia registros duplicados criados por versões anteriores ou concorrência antes de sincronizar.
+        // Agrupa por cartão e merchant normalizado para manter uma única entidade canônica por assinatura.
         val duplicateGroups = existingCharges.groupBy {
             Pair(
                 it.cardId,
@@ -256,6 +247,8 @@ class CardRepository(private val dao: AppDao) {
         }.values.filter { it.size > 1 }
 
         for (matches in duplicateGroups) {
+            // Prioriza registros que o usuário confirmou manualmente, depois os que estão ativos,
+            // e desempata pelo menor ID para garantir estabilidade determinística.
             val canonical = matches.sortedWith(
                 compareByDescending<RecurringChargeEntity> { it.isUserConfirmed }
                     .thenByDescending { it.isActive }
@@ -269,6 +262,8 @@ class CardRepository(private val dao: AppDao) {
                 previousAmount = latest.previousAmount,
                 billingCycleDays = latest.billingCycleDays,
                 lastChargedTimestamp = latest.lastChargedTimestamp,
+                // Preserva o consentimento do usuário: se qualquer cópia estava ativa ou confirmada,
+                // a consolidação mantém esse estado para não anular uma decisão prévia do usuário.
                 isActive = matches.any { it.isActive },
                 isUserConfirmed = matches.any { it.isUserConfirmed }
             )
@@ -290,7 +285,7 @@ class CardRepository(private val dao: AppDao) {
             }
             val existing = existingCharges.getOrNull(existingIndex)
             if (existing != null) {
-                // Preserve the existing display label and ID while matching on canonical identity.
+                // Preserva o rótulo original e o ID estável, atualizando apenas métricas contábeis e ciclo.
                 val updated = existing.copy(
                     holderId = item.holderId,
                     expectedAmount = item.expectedAmount,
@@ -353,6 +348,11 @@ class CardRepository(private val dao: AppDao) {
     }
 
     companion object {
+        /**
+         * Mutex de processo compartilhado entre todas as instâncias de [CardRepository].
+         * Impede condições de corrida em gravações financeiras concorrentes e garante
+         * a integridade da deduplicação de 120s antes de qualquer persistência no SQLite.
+         */
         private val expenseMutex = Mutex()
 
         fun calculateFirstInstallmentMonth(purchaseDate: LocalDate, closingDay: Int): LocalDate {

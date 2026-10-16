@@ -43,12 +43,13 @@ data class DashboardUiState(
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class MainViewModel(application: Application) : AndroidViewModel(application) {
+class MainViewModel(
+    application: Application,
+    private val repository: CardRepository = CardRepository(AppDatabase.getInstance(application).appDao()),
+    val credentialStore: CredentialStore = CredentialStore(application)
+) : AndroidViewModel(application) {
     private val _uiMessages = MutableSharedFlow<String>(extraBufferCapacity = 4)
     val uiMessages = _uiMessages.asSharedFlow()
-    private val dao = AppDatabase.getInstance(application).appDao()
-    private val repository = CardRepository(dao)
-    val credentialStore = CredentialStore(application)
 
     init {
         viewModelScope.launch {

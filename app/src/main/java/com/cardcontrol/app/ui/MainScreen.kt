@@ -17,7 +17,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.*
 import androidx.compose.material.icons.filled.*
 import androidx.compose.ui.draw.clip
-import com.cardcontrol.app.data.local.RecurringChargeEntity
+import com.cardcontrol.app.data.local.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -30,55 +30,20 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.cardcontrol.app.data.local.CreditCardEntity
-import com.cardcontrol.app.data.local.SupportedBank
+import com.cardcontrol.app.ui.components.GlassTextField
+import com.cardcontrol.app.ui.components.RecurringChargesCard
+import com.cardcontrol.app.ui.dialogs.CardDialog
+import com.cardcontrol.app.ui.dialogs.DeleteCardDialog
+import com.cardcontrol.app.ui.dialogs.ExpenseDialog
+import com.cardcontrol.app.ui.dialogs.HolderDialog
+import com.cardcontrol.app.ui.dialogs.PaymentDialog
 import com.cardcontrol.app.ui.theme.*
 import com.cardcontrol.app.util.MoneyUtils
 import com.cardcontrol.app.util.ReportEngine
 import kotlinx.coroutines.flow.collect
-
-@Composable
-fun GlassTextField(
-    value: String,
-    onValueChange: (String) -> Unit,
-    label: String,
-    modifier: Modifier = Modifier,
-    placeholder: String? = null,
-    supportingText: String? = null,
-    leadingIcon: (@Composable () -> Unit)? = null,
-    trailingIcon: (@Composable () -> Unit)? = null,
-    keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
-    visualTransformation: VisualTransformation = VisualTransformation.None,
-    singleLine: Boolean = true
-) {
-    OutlinedTextField(
-        value = value,
-        onValueChange = onValueChange,
-        label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it, color = TextSecondary.copy(alpha = 0.5f)) } },
-        supportingText = supportingText?.let { { Text(it, style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, color = TextSecondary)) } },
-        leadingIcon = leadingIcon,
-        trailingIcon = trailingIcon,
-        keyboardOptions = keyboardOptions,
-        visualTransformation = visualTransformation,
-        singleLine = singleLine,
-        modifier = modifier.fillMaxWidth().heightIn(min = 58.dp),
-        shape = RoundedCornerShape(14.dp),
-        colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PrimaryAccent,
-            unfocusedBorderColor = Color.White.copy(alpha = 0.18f),
-            focusedLabelColor = PrimaryAccent,
-            unfocusedLabelColor = TextSecondary,
-            focusedTextColor = TextPrimary,
-            unfocusedTextColor = TextPrimary,
-            focusedContainerColor = AppBackground.copy(alpha = 0.7f),
-            unfocusedContainerColor = AppBackground.copy(alpha = 0.45f),
-            cursorColor = PrimaryAccent
-        )
-    )
-}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,8 +53,81 @@ fun MainScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
-    var selectedTab by remember { mutableIntStateOf(0) }
-    var expandedHolderId by remember { mutableStateOf<Long?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(viewModel) {
+        viewModel.uiMessages.collect { message ->
+            snackbarHostState.showSnackbar(message)
+        }
+    }
+
+    MainScreenContent(
+        state = state,
+        onOpenNotificationSettings = onOpenNotificationSettings,
+        onChangeMonth = { offset -> viewModel.changeMonth(offset) },
+        onToggleRecurringCharge = { id, active -> viewModel.setRecurringChargeActive(id, active) },
+        onMarkTransactionRecurring = { txId, isRec -> viewModel.markTransactionRecurring(txId, isRec) },
+        onAddExpense = { cardId, holderId, merchant, amount, parcels ->
+            viewModel.addExpense(cardId, holderId, merchant, amount, parcels)
+        },
+        onAddPayment = { holderId, cardId, amount, notes ->
+            viewModel.addPayment(holderId, cardId, amount, notes)
+        },
+        onAddHolder = { name, whats, email, subLimit ->
+            viewModel.addHolder(name, whats, email, subLimit)
+        },
+        onDeleteCard = { cardId -> viewModel.deleteCard(cardId) },
+        onAddCard = { name, bank, digits, limit, closing, due, holderId ->
+            viewModel.addCard(name, bank, digits, limit, closing, due, holderId)
+        },
+        onUpdateCard = { id, name, bank, digits, limit, closing, due, holderId ->
+            viewModel.updateCard(id, name, bank, digits, limit, closing, due, holderId)
+        },
+        initialSmtpEmail = viewModel.credentialStore.getSenderEmail(),
+        initialSmtpPass = viewModel.credentialStore.getAppPassword(),
+        onSaveSmtpCredentials = { email, pass ->
+            viewModel.credentialStore.saveSmtpCredentials(email, pass)
+        },
+        onShareHolderInvoice = { holder, installments, paidInMonth, globalCommitted ->
+            ReportEngine.sharePdfAndTextViaWhatsApp(
+                context = context,
+                holder = holder,
+                month = state.selectedMonth,
+                year = state.selectedYear,
+                installments = installments,
+                paidInMonth = paidInMonth,
+                globalCommitted = globalCommitted
+            )
+        },
+        snackbarHostState = snackbarHostState
+    )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun MainScreenContent(
+    state: DashboardUiState,
+    initialTab: Int = 0,
+    initialExpandedHolderId: Long? = null,
+    onOpenNotificationSettings: () -> Unit = {},
+    onChangeMonth: (Long) -> Unit = {},
+    onToggleRecurringCharge: (Long, Boolean) -> Unit = { _, _ -> },
+    onMarkTransactionRecurring: (Long, Boolean) -> Unit = { _, _ -> },
+    onAddExpense: (cardId: Long, holderId: Long, merchant: String, amountCents: Long, parcels: Int) -> Unit = { _, _, _, _, _ -> },
+    onAddPayment: (holderId: Long, cardId: Long?, amountCents: Long, notes: String) -> Unit = { _, _, _, _ -> },
+    onAddHolder: (name: String, whats: String, email: String, subLimitCents: Long) -> Unit = { _, _, _, _ -> },
+    onDeleteCard: (cardId: Long) -> Unit = {},
+    onAddCard: (name: String, bank: String, digits: String, limitCents: Long, closingDay: Int, dueDay: Int, holderId: Long?) -> Unit = { _, _, _, _, _, _, _ -> },
+    onUpdateCard: (id: Long, name: String, bank: String, digits: String, limitCents: Long, closingDay: Int, dueDay: Int, holderId: Long?) -> Unit = { _, _, _, _, _, _, _, _ -> },
+    initialSmtpEmail: String = "",
+    initialSmtpPass: String = "",
+    onSaveSmtpCredentials: ((String, String) -> Unit)? = null,
+    onShareHolderInvoice: ((HolderEntity, List<InstallmentEntity>, Long, Long) -> Unit)? = null,
+    snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
+) {
+    val context = LocalContext.current
+    var selectedTab by remember { mutableIntStateOf(initialTab) }
+    var expandedHolderId by remember { mutableStateOf<Long?>(initialExpandedHolderId) }
     var cardBeingEdited by remember { mutableStateOf<CreditCardEntity?>(null) }
     var cardPendingDeletion by remember { mutableStateOf<CreditCardEntity?>(null) }
 
@@ -98,14 +136,7 @@ fun MainScreen(
     var showHolderDialog by remember { mutableStateOf(false) }
     var showCardDialog by remember { mutableStateOf(false) }
 
-    val snackbarHostState = remember { SnackbarHostState() }
     var showSavedMessage by remember { mutableStateOf(false) }
-
-    LaunchedEffect(viewModel) {
-        viewModel.uiMessages.collect { message ->
-            snackbarHostState.showSnackbar(message)
-        }
-    }
 
     LaunchedEffect(showSavedMessage) {
         if (showSavedMessage) {
@@ -145,7 +176,7 @@ fun MainScreen(
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 IconButton(
-                                    onClick = { viewModel.changeMonth(-1) },
+                                    onClick = { onChangeMonth(-1L) },
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
@@ -165,7 +196,7 @@ fun MainScreen(
                                     )
                                 )
                                 IconButton(
-                                    onClick = { viewModel.changeMonth(1) },
+                                    onClick = { onChangeMonth(1L) },
                                     modifier = Modifier.size(32.dp)
                                 ) {
                                     Icon(
@@ -359,7 +390,7 @@ fun MainScreen(
                                         totalMonthlyRecurring = state.totalMonthlyRecurring,
                                         limitImpactPercent = state.recurringLimitImpactPercent,
                                         priceCreepAlertCount = state.priceCreepAlertCount,
-                                        onToggleActive = { id, active -> viewModel.setRecurringChargeActive(id, active) }
+                                        onToggleActive = { id, active -> onToggleRecurringCharge(id, active) }
                                     )
                                 }
                                 items(state.holderSummaries, key = { it.holder.id }) { item ->
@@ -397,15 +428,24 @@ fun MainScreen(
                                                 }
                                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                                     IconButton(onClick = {
-                                                        ReportEngine.sharePdfAndTextViaWhatsApp(
-                                                            context = context,
-                                                            holder = item.holder,
-                                                            month = state.selectedMonth,
-                                                            year = state.selectedYear,
-                                                            installments = item.monthlyInstallments,
-                                                            paidInMonth = item.monthlyPaid,
-                                                            globalCommitted = item.globalCommitted
-                                                        )
+                                                        if (onShareHolderInvoice != null) {
+                                                            onShareHolderInvoice(
+                                                                item.holder,
+                                                                item.monthlyInstallments,
+                                                                item.monthlyPaid,
+                                                                item.globalCommitted
+                                                            )
+                                                        } else {
+                                                            ReportEngine.sharePdfAndTextViaWhatsApp(
+                                                                context = context,
+                                                                holder = item.holder,
+                                                                month = state.selectedMonth,
+                                                                year = state.selectedYear,
+                                                                installments = item.monthlyInstallments,
+                                                                paidInMonth = item.monthlyPaid,
+                                                                globalCommitted = item.globalCommitted
+                                                            )
+                                                        }
                                                     }) { Icon(Icons.Default.Share, contentDescription = "Exportar PDF/WhatsApp", tint = PrimaryAccent) }
                                                     Icon(
                                                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
@@ -444,7 +484,7 @@ fun MainScreen(
                                                                 ) {
                                                                     if (inst.totalInstallments == 1) {
                                                                         IconButton(
-                                                                            onClick = { viewModel.markTransactionRecurring(inst.transactionId, true) },
+                                                                            onClick = { onMarkTransactionRecurring(inst.transactionId, true) },
                                                                             modifier = Modifier.size(24.dp)
                                                                         ) {
                                                                             Icon(
@@ -665,8 +705,8 @@ fun MainScreen(
                     }
 
                     2 -> {
-                        var email by remember { mutableStateOf(viewModel.credentialStore.getSenderEmail()) }
-                        var pass by remember { mutableStateOf(viewModel.credentialStore.getAppPassword()) }
+                        var email by remember { mutableStateOf(initialSmtpEmail) }
+                        var pass by remember { mutableStateOf(initialSmtpPass) }
                         var showPassword by remember { mutableStateOf(false) }
 
                         Column(
@@ -759,7 +799,7 @@ fun MainScreen(
 
                                     Button(
                                         onClick = {
-                                            viewModel.credentialStore.saveSmtpCredentials(email, pass)
+                                            onSaveSmtpCredentials?.invoke(email, pass)
                                             showSavedMessage = true
                                         },
                                         modifier = Modifier.fillMaxWidth(),
@@ -793,680 +833,324 @@ fun MainScreen(
     }
 
     if (showExpenseDialog && state.cards.isNotEmpty() && state.holders.isNotEmpty()) {
-        var merchant by remember { mutableStateOf("") }
-        var amount by remember { mutableStateOf("") }
-        var parcels by remember { mutableStateOf("1") }
-        var selectedCardId by remember { mutableLongStateOf(state.cards.first().id) }
-        var selectedHolderId by remember {
-            mutableLongStateOf(
-                state.cards.first().defaultHolderId
-                    ?.takeIf { holderId -> state.holders.any { it.id == holderId } }
-                    ?: state.holders.first().id
-            )
-        }
-
-        AlertDialog(
+        ExpenseDialog(
+            cards = state.cards,
+            holders = state.holders,
             onDismissRequest = { showExpenseDialog = false },
-            containerColor = AppBackgroundTop,
-            titleContentColor = TextPrimary,
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AddShoppingCart, null, tint = PrimaryAccent)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Lançar Compra", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Cartão Utilizado:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-                    Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        LiquidPillSelector(
-                            options = state.cards.map { it.id to "${it.name} (${it.lastFourDigits})" },
-                            selectedId = selectedCardId,
-                            onSelect = { cardId ->
-                                selectedCardId = cardId
-                                selectedHolderId = state.cards.find { it.id == cardId }?.defaultHolderId
-                                    ?.takeIf { holderId -> state.holders.any { it.id == holderId } }
-                                    ?: state.holders.first().id
-                            }
-                        )
-                    }
-                    Text("Responsável pelo Gasto:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-                    Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        LiquidPillSelector(
-                            options = state.holders.map { it.id to it.name },
-                            selectedId = selectedHolderId,
-                            onSelect = { selectedHolderId = it }
-                        )
-                    }
-                    GlassTextField(
-                        value = merchant,
-                        onValueChange = { merchant = it },
-                        label = "Estabelecimento",
-                        placeholder = "Ex: Mercado Livre, Posto...",
-                        leadingIcon = { Icon(Icons.Default.Storefront, null, tint = PrimaryAccent) },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
-                    GlassTextField(
-                        value = amount,
-                        onValueChange = { amount = it },
-                        label = "Valor Total (R$)",
-                        placeholder = "0,00",
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = SemanticSuccess) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
-                    )
-                    GlassTextField(
-                        value = parcels,
-                        onValueChange = { parcels = it },
-                        label = "Parcelas (1 a 72)",
-                        placeholder = "1",
-                        leadingIcon = { Icon(Icons.Default.Layers, null, tint = SecondaryAccent) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showExpenseDialog = false }) {
-                    Text("Cancelar", color = TextSecondary)
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val v = MoneyUtils.parseToCents(amount) ?: 0L
-                        if (merchant.isNotBlank() && v > 0L) {
-                            viewModel.addExpense(selectedCardId, selectedHolderId, merchant, v, (parcels.toIntOrNull() ?: 1).coerceIn(1, 72))
-                            showExpenseDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent, contentColor = AppBackground),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Confirmar", color = AppBackground, fontWeight = FontWeight.Bold)
-                }
+            onConfirm = { cardId, holderId, merchant, amountCents, parcels ->
+                onAddExpense(cardId, holderId, merchant, amountCents, parcels)
+                showExpenseDialog = false
             }
         )
     }
 
-    if (showPaymentDialog && state.holders.isNotEmpty()) {
-        var amount by remember { mutableStateOf("") }
-        var notes by remember { mutableStateOf("") }
-        var selectedHolderId by remember { mutableLongStateOf(state.holders.first().id) }
-        var selectedCardId by remember { mutableStateOf(state.cards.firstOrNull()?.id) }
 
-        AlertDialog(
+    if (showPaymentDialog && state.holders.isNotEmpty()) {
+        PaymentDialog(
+            holders = state.holders,
+            cards = state.cards,
             onDismissRequest = { showPaymentDialog = false },
-            containerColor = AppBackgroundTop,
-            titleContentColor = TextPrimary,
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Payments, null, tint = SemanticSuccess)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Registrar Abatimento / Pix", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Quem Pagou:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-                    Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        LiquidPillSelector(options = state.holders.map { it.id to it.name }, selectedId = selectedHolderId, onSelect = { selectedHolderId = it })
-                    }
-                    if (state.cards.isNotEmpty()) {
-                        Text("Liberar Limite do Cartão:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-                        Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                            LiquidPillSelector(options = state.cards.map { it.id to it.name }, selectedId = selectedCardId, onSelect = { selectedCardId = it })
-                        }
-                    }
-                    GlassTextField(
-                        value = amount,
-                        onValueChange = { amount = it },
-                        label = "Valor Recebido (R$)",
-                        placeholder = "0,00",
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = SemanticSuccess) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
-                    )
-                    GlassTextField(
-                        value = notes,
-                        onValueChange = { notes = it },
-                        label = "Observação",
-                        placeholder = "Ex: Pix fatura adiantada",
-                        leadingIcon = { Icon(Icons.Default.EditNote, null, tint = PrimaryAccent) },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showPaymentDialog = false }) {
-                    Text("Cancelar", color = TextSecondary)
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val v = MoneyUtils.parseToCents(amount) ?: 0L
-                        if (v > 0L) {
-                            viewModel.addPayment(selectedHolderId, selectedCardId, v, notes)
-                            showPaymentDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SemanticSuccess, contentColor = AppBackground),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Abater", color = AppBackground, fontWeight = FontWeight.Bold)
-                }
+            onConfirm = { holderId, cardId, amountCents, notes ->
+                onAddPayment(holderId, cardId, amountCents, notes)
+                showPaymentDialog = false
             }
         )
     }
 
     if (showHolderDialog) {
-        var name by remember { mutableStateOf("") }
-        var whats by remember { mutableStateOf("") }
-        var email by remember { mutableStateOf("") }
-        var subLimit by remember { mutableStateOf("") }
-
-        AlertDialog(
+        HolderDialog(
             onDismissRequest = { showHolderDialog = false },
-            containerColor = AppBackgroundTop,
-            titleContentColor = TextPrimary,
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.PersonAdd, null, tint = PrimaryAccent)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Novo Titular / Dependente", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    GlassTextField(
-                        value = name,
-                        onValueChange = { name = it },
-                        label = "Nome Completo",
-                        placeholder = "Ex: Carlos Silva",
-                        leadingIcon = { Icon(Icons.Default.Person, null, tint = PrimaryAccent) },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
-                    GlassTextField(
-                        value = whats,
-                        onValueChange = { whats = it },
-                        label = "WhatsApp com DDD",
-                        placeholder = "Ex: 5511999998888",
-                        leadingIcon = { Icon(Icons.Default.Phone, null, tint = SemanticSuccess) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
-                    )
-                    GlassTextField(
-                        value = email,
-                        onValueChange = { email = it },
-                        label = "E-mail para Alertas Instantâneos",
-                        placeholder = "carlos@gmail.com",
-                        leadingIcon = { Icon(Icons.Default.Email, null, tint = SecondaryAccent) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
-                    )
-                    GlassTextField(
-                        value = subLimit,
-                        onValueChange = { subLimit = it },
-                        label = "Sublimite Mensal (R$)",
-                        placeholder = "0,00 (0 para sem teto)",
-                        leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, null, tint = SemanticWarning) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done)
-                    )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showHolderDialog = false }) {
-                    Text("Cancelar", color = TextSecondary)
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        if (name.isNotBlank()) {
-                            val subLimitCents = MoneyUtils.parseToCents(subLimit) ?: 0L
-                            viewModel.addHolder(name, whats, email, subLimitCents)
-                            showHolderDialog = false
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent, contentColor = AppBackground),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Salvar", color = AppBackground, fontWeight = FontWeight.Bold)
-                }
+            onConfirm = { name, whats, email, subLimitCents ->
+                onAddHolder(name, whats, email, subLimitCents)
+                showHolderDialog = false
             }
         )
     }
 
-    if (cardPendingDeletion != null) {
-        val pendingCard = cardPendingDeletion!!
-        AlertDialog(
+    cardPendingDeletion?.let { pendingCard ->
+        DeleteCardDialog(
+            card = pendingCard,
             onDismissRequest = { cardPendingDeletion = null },
-            containerColor = AppBackgroundTop,
-            titleContentColor = TextPrimary,
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = SemanticDanger)
-                    Spacer(Modifier.width(8.dp))
-                    Text("Excluir cartão?", fontWeight = FontWeight.Bold)
-                }
-            },
-            text = {
-                Text(
-                    "O cartão \"${pendingCard.name}\" só será excluído se não tiver compras, parcelas ou pagamentos vinculados. Assim, o histórico financeiro não será apagado por engano.",
-                    color = TextSecondary
-                )
-            },
-            dismissButton = {
-                TextButton(onClick = { cardPendingDeletion = null }) {
-                    Text("Cancelar", color = TextSecondary)
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        viewModel.deleteCard(pendingCard.id)
-                        cardPendingDeletion = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = SemanticDanger, contentColor = Color.White),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text("Excluir cartão", color = Color.White, fontWeight = FontWeight.Bold)
-                }
+            onConfirm = { cardId ->
+                onDeleteCard(cardId)
+                cardPendingDeletion = null
             }
         )
     }
+
 
     if (showCardDialog) {
-        val cardToEdit = cardBeingEdited
-        var selectedBank by remember(cardToEdit?.id) {
-            mutableStateOf(if (cardToEdit != null) SupportedBank.fromId(cardToEdit.bank) else SupportedBank.NUBANK)
-        }
-        var name by remember(cardToEdit?.id) {
-            mutableStateOf(cardToEdit?.name ?: SupportedBank.NUBANK.displayName)
-        }
-        var lastFour by remember(cardToEdit?.id) { mutableStateOf(cardToEdit?.lastFourDigits ?: "") }
-        var limit by remember(cardToEdit?.id) {
-            mutableStateOf(cardToEdit?.totalLimit?.let { MoneyUtils.formatDecimal(it) } ?: "")
-        }
-        var closing by remember(cardToEdit?.id) { mutableStateOf(cardToEdit?.closingDay?.toString() ?: "10") }
-        var due by remember(cardToEdit?.id) { mutableStateOf(cardToEdit?.dueDay?.toString() ?: "17") }
-        var defaultHolderId by remember(cardToEdit?.id) {
-            mutableStateOf(if (cardToEdit != null) cardToEdit.defaultHolderId else state.holders.firstOrNull()?.id)
-        }
-        var formError by remember(cardToEdit?.id) { mutableStateOf<String?>(null) }
-
-        AlertDialog(
+        CardDialog(
+            cardToEdit = cardBeingEdited,
+            holders = state.holders,
             onDismissRequest = {
                 showCardDialog = false
                 cardBeingEdited = null
             },
-            containerColor = AppBackgroundTop,
-            titleContentColor = TextPrimary,
-            shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
-            title = {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CreditCard, null, tint = SecondaryAccent)
-                    Spacer(Modifier.width(8.dp))
-                    Text(if (cardToEdit == null) "Novo cartão" else "Editar cartão", fontWeight = FontWeight.Bold)
-                }
+            onAddCard = { name, bank, digits, limitCents, closingDay, dueDay, holderId ->
+                onAddCard(name, bank, digits, limitCents, closingDay, dueDay, holderId)
+                showCardDialog = false
+                cardBeingEdited = null
             },
-            text = {
-                Column(
-                    modifier = Modifier.verticalScroll(rememberScrollState()),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OverlineText("Banco emissor", color = PrimaryAccent)
-                    Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        LiquidPillSelector(
-                            options = SupportedBank.entries.map { it.id to it.displayName },
-                            selectedId = selectedBank.id,
-                            onSelect = { bankId ->
-                                val previousBank = selectedBank
-                                val newBank = SupportedBank.fromId(bankId)
-                                selectedBank = newBank
-                                if (cardToEdit == null && (name.isBlank() || name == previousBank.displayName)) {
-                                    name = if (newBank != SupportedBank.OTHER) newBank.displayName else ""
-                                }
-                                formError = null
-                            }
-                        )
-                    }
-                    Text(
-                        "Identifica a origem das notificações bancárias para captura automática.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
-
-                    OverlineText("Identificação do cartão", color = PrimaryAccent)
-                    GlassTextField(
-                        value = name,
-                        onValueChange = { name = it; formError = null },
-                        label = "Apelido do cartão",
-                        placeholder = "Ex.: Meu Cartão Principal",
-                        leadingIcon = { Icon(Icons.Default.CreditCard, null, tint = SecondaryAccent) },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
-                    )
-                    Text(
-                        "Você pode dar o apelido que preferir. A captura automática continuará funcionando.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
-                    GlassTextField(
-                        value = lastFour,
-                        onValueChange = { value -> lastFour = value.filter { it.isDigit() }.takeLast(4); formError = null },
-                        label = "Últimos 4 dígitos",
-                        placeholder = "Ex.: 0359",
-                        leadingIcon = { Icon(Icons.Default.Pin, null, tint = PrimaryAccent) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
-                    )
-                    GlassTextField(
-                        value = limit,
-                        onValueChange = { limit = it; formError = null },
-                        label = "Limite total (R$)",
-                        placeholder = "Ex.: 5000,00",
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = SemanticSuccess) },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
-                    )
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        GlassTextField(
-                            value = closing,
-                            onValueChange = { closing = it; formError = null },
-                            label = "Fechamento (1–28)",
-                            placeholder = "10",
-                            leadingIcon = { Icon(Icons.Default.CalendarToday, null, tint = TextSecondary) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
-                            modifier = Modifier.weight(1f)
-                        )
-                        GlassTextField(
-                            value = due,
-                            onValueChange = { due = it; formError = null },
-                            label = "Vencimento (1–28)",
-                            placeholder = "17",
-                            leadingIcon = { Icon(Icons.Default.Event, null, tint = TextSecondary) },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.12f), modifier = Modifier.padding(vertical = 4.dp))
-                    OverlineText("Pessoa responsável", color = PrimaryAccent)
-                    Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-                        LiquidPillSelector(
-                            options = listOf(0L to "Sem vínculo") + state.holders.map { it.id to it.name },
-                            selectedId = defaultHolderId ?: 0L,
-                            onSelect = { selected -> defaultHolderId = selected.takeIf { it != 0L }; formError = null }
-                        )
-                    }
-                    Text(
-                        "Essa pessoa será usada nas compras capturadas automaticamente. Os lançamentos antigos não mudam.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = TextSecondary
-                    )
-                    if (formError != null) {
-                        Text(formError!!, style = MaterialTheme.typography.bodySmall, color = SemanticDanger)
-                    }
-                }
-            },
-            dismissButton = {
-                TextButton(
-                    onClick = {
-                        showCardDialog = false
-                        cardBeingEdited = null
-                    }
-                ) {
-                    Text("Cancelar", color = TextSecondary)
-                }
-            },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        val digits = lastFour.filter { it.isDigit() }.takeLast(4)
-                        val limitCents = MoneyUtils.parseToCents(limit)
-                        val closingDay = closing.toIntOrNull()
-                        val dueDay = due.toIntOrNull()
-                        if (
-                            name.isBlank() ||
-                            digits.length != 4 ||
-                            limitCents == null ||
-                            closingDay == null || closingDay !in 1..28 ||
-                            dueDay == null || dueDay !in 1..28
-                        ) {
-                            formError = "Confira o apelido, os quatro dígitos, o limite e as datas."
-                        } else {
-                            val holderId = defaultHolderId?.takeIf { id -> state.holders.any { it.id == id } }
-                            if (cardToEdit == null) {
-                                viewModel.addCard(
-                                    name = name,
-                                    bank = selectedBank.id,
-                                    lastFour = digits,
-                                    limit = limitCents,
-                                    closing = closingDay,
-                                    due = dueDay,
-                                    defaultHolderId = holderId
-                                )
-                            } else {
-                                viewModel.updateCard(
-                                    id = cardToEdit.id,
-                                    name = name,
-                                    bank = selectedBank.id,
-                                    lastFour = digits,
-                                    limit = limitCents,
-                                    closing = closingDay,
-                                    due = dueDay,
-                                    defaultHolderId = holderId
-                                )
-                            }
-                            showCardDialog = false
-                            cardBeingEdited = null
-                        }
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent, contentColor = AppBackground),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Text(if (cardToEdit == null) "Cadastrar cartão" else "Salvar alterações", color = AppBackground, fontWeight = FontWeight.Bold)
-                }
+            onUpdateCard = { id, name, bank, digits, limitCents, closingDay, dueDay, holderId ->
+                onUpdateCard(id, name, bank, digits, limitCents, closingDay, dueDay, holderId)
+                showCardDialog = false
+                cardBeingEdited = null
             }
         )
     }
 }
 
-@Composable
-fun RecurringChargesCard(
-    recurringCharges: List<RecurringChargeEntity>,
-    totalMonthlyRecurring: Long,
-    limitImpactPercent: Double,
-    priceCreepAlertCount: Int,
-    onToggleActive: (Long, Boolean) -> Unit,
-    modifier: Modifier = Modifier
-) {
-    var isExpanded by remember { mutableStateOf(true) }
+// ==========================================
+// COMPOSE PREVIEWS & DADOS SIMULADOS DE DESIGN
+// ==========================================
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .liquidGlassCard(
-                cornerRadius = 20.dp,
-                accentTint = if (priceCreepAlertCount > 0) SemanticWarning else SecondaryAccent
+private object PreviewMockData {
+    val holders = listOf(
+        HolderEntity(
+            id = 1L,
+            name = "Carlos Silva",
+            whatsapp = "11988887777",
+            email = "carlos.silva@exemplo.com",
+            subLimit = 250000L // R$ 2.500,00
+        ),
+        HolderEntity(
+            id = 2L,
+            name = "Ana Paula",
+            whatsapp = "11977776666",
+            email = "ana.paula@exemplo.com",
+            subLimit = 150000L // R$ 1.500,00
+        )
+    )
+
+    val cards = listOf(
+        CreditCardEntity(
+            id = 1L,
+            name = "Nubank Ultravioleta",
+            bank = SupportedBank.NUBANK.id,
+            lastFourDigits = "4821",
+            totalLimit = 1000000L, // R$ 10.000,00
+            closingDay = 10,
+            dueDay = 17,
+            defaultHolderId = 1L
+        ),
+        CreditCardEntity(
+            id = 2L,
+            name = "Itaú Personnalité",
+            bank = SupportedBank.ITAU.id,
+            lastFourDigits = "9012",
+            totalLimit = 800000L, // R$ 8.000,00
+            closingDay = 20,
+            dueDay = 27,
+            defaultHolderId = 2L
+        )
+    )
+
+    val installmentsCarlos = listOf(
+        InstallmentEntity(
+            id = 1L,
+            transactionId = 101L,
+            cardId = 1L,
+            holderId = 1L,
+            merchantSnapshot = "Supermercado Pão de Açúcar",
+            installmentNumber = 1,
+            totalInstallments = 1,
+            amount = 38500L, // R$ 385,00
+            refMonth = 10,
+            refYear = 2026,
+            purchaseTimestamp = 1729080000000L
+        ),
+        InstallmentEntity(
+            id = 2L,
+            transactionId = 102L,
+            cardId = 1L,
+            holderId = 1L,
+            merchantSnapshot = "Apple Store Brasil",
+            installmentNumber = 3,
+            totalInstallments = 10,
+            amount = 45990L, // R$ 459,90
+            refMonth = 10,
+            refYear = 2026,
+            purchaseTimestamp = 1729080000000L
+        )
+    )
+
+    val installmentsAna = listOf(
+        InstallmentEntity(
+            id = 3L,
+            transactionId = 103L,
+            cardId = 2L,
+            holderId = 2L,
+            merchantSnapshot = "Farmácia Droga Raia",
+            installmentNumber = 1,
+            totalInstallments = 1,
+            amount = 12450L, // R$ 124,50
+            refMonth = 10,
+            refYear = 2026,
+            purchaseTimestamp = 1729080000000L
+        )
+    )
+
+    val recurring = listOf(
+        RecurringChargeEntity(
+            id = 1L,
+            cardId = 1L,
+            holderId = 1L,
+            merchant = "Netflix",
+            expectedAmount = 5990L,
+            lastAmount = 5990L, // R$ 59,90
+            previousAmount = 4590L, // R$ 45,90 (alta de preço detectada!)
+            billingCycleDays = 30,
+            isActive = true
+        ),
+        RecurringChargeEntity(
+            id = 2L,
+            cardId = 2L,
+            holderId = 2L,
+            merchant = "Spotify Family",
+            expectedAmount = 3490L,
+            lastAmount = 3490L, // R$ 34,90
+            previousAmount = null,
+            billingCycleDays = 30,
+            isActive = true
+        )
+    )
+
+    val sampleState = DashboardUiState(
+        selectedMonth = 10,
+        selectedYear = 2026,
+        holders = holders,
+        cards = cards,
+        holderSummaries = listOf(
+            HolderSummaryUi(
+                holder = holders[0],
+                monthlyInstallments = installmentsCarlos,
+                monthlySpent = 84490L,
+                monthlyPaid = 0L,
+                monthlyNetDue = 84490L,
+                globalCommitted = 350000L,
+                availableSubLimit = -100000L
+            ),
+            HolderSummaryUi(
+                holder = holders[1],
+                monthlyInstallments = installmentsAna,
+                monthlySpent = 12450L,
+                monthlyPaid = 0L,
+                monthlyNetDue = 12450L,
+                globalCommitted = 45000L,
+                availableSubLimit = 105000L
             )
-            .padding(16.dp)
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .clickable { isExpanded = !isExpanded },
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    Icon(
-                        imageVector = Icons.Default.Autorenew,
-                        contentDescription = null,
-                        tint = if (priceCreepAlertCount > 0) SemanticWarning else SecondaryAccent,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Text(
-                        "Assinaturas & Recorrências",
-                        style = MaterialTheme.typography.titleMedium,
-                        fontWeight = FontWeight.Bold,
-                        color = TextPrimary
-                    )
-                }
+        ),
+        cardSummaries = listOf(
+            CardSummaryUi(
+                card = cards[0],
+                globalCommitted = 450000L,
+                availableLimit = 550000L
+            ),
+            CardSummaryUi(
+                card = cards[1],
+                globalCommitted = 120000L,
+                availableLimit = 680000L
+            )
+        ),
+        totalMonthInvoice = 96940L,
+        totalMonthPaid = 0L,
+        recurringCharges = recurring,
+        totalMonthlyRecurring = 9480L,
+        recurringLimitImpactPercent = 5.2,
+        priceCreepAlertCount = 1
+    )
 
-                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                    if (priceCreepAlertCount > 0) {
-                        Surface(
-                            shape = CircleShape,
-                            color = SemanticWarning.copy(alpha = 0.2f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, SemanticWarning.copy(alpha = 0.6f))
-                        ) {
-                            Row(
-                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Icon(
-                                    Icons.AutoMirrored.Filled.TrendingUp,
-                                    contentDescription = "Alerta de aumento",
-                                    tint = SemanticWarning,
-                                    modifier = Modifier.size(12.dp)
-                                )
-                                Text(
-                                    "$priceCreepAlertCount alta",
-                                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-                                    fontWeight = FontWeight.Bold,
-                                    color = SemanticWarning
-                                )
-                            }
-                        }
-                    }
+    val emptyState = DashboardUiState(
+        selectedMonth = 10,
+        selectedYear = 2026,
+        holders = emptyList(),
+        cards = emptyList(),
+        holderSummaries = emptyList(),
+        cardSummaries = emptyList(),
+        totalMonthInvoice = 0L,
+        totalMonthPaid = 0L,
+        recurringCharges = emptyList(),
+        totalMonthlyRecurring = 0L,
+        recurringLimitImpactPercent = 0.0,
+        priceCreepAlertCount = 0
+    )
+}
 
-                    Icon(
-                        imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
-                        contentDescription = if (isExpanded) "Recolher" else "Expandir",
-                        tint = TextSecondary
-                    )
-                }
-            }
+@Preview(name = "1. Tela Principal - Faturas do Mês", showBackground = true, backgroundColor = 0xFF0B0F19)
+@Composable
+private fun MainScreenInvoicesTabPreview() {
+    CardControlTheme {
+        MainScreenContent(
+            state = PreviewMockData.sampleState,
+            initialTab = 0,
+            initialExpandedHolderId = 1L
+        )
+    }
+}
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.Bottom
-            ) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    OverlineText("Comprometimento Mensal")
-                    CurrencyText(
-                        amountCents = totalMonthlyRecurring,
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = TextPrimary
-                    )
-                }
-                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    OverlineText("Impacto no Limite")
-                    Text(
-                        String.format(java.util.Locale.US, "%.1f%%", limitImpactPercent),
-                        style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
-                        fontWeight = FontWeight.Bold,
-                        color = if (limitImpactPercent > 30.0) SemanticWarning else PrimaryAccent
-                    )
-                }
-            }
+@Preview(name = "2. Tela Principal - Cartões Cadastrados", showBackground = true, backgroundColor = 0xFF0B0F19)
+@Composable
+private fun MainScreenCardsTabPreview() {
+    CardControlTheme {
+        MainScreenContent(
+            state = PreviewMockData.sampleState,
+            initialTab = 1
+        )
+    }
+}
 
-            AnimatedVisibility(visible = isExpanded) {
-                Column(
-                    modifier = Modifier.padding(top = 4.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+@Preview(name = "3. Tela Principal - Notificações & Cofre", showBackground = true, backgroundColor = 0xFF0B0F19)
+@Composable
+private fun MainScreenSettingsTabPreview() {
+    CardControlTheme {
+        MainScreenContent(
+            state = PreviewMockData.sampleState,
+            initialTab = 2,
+            initialSmtpEmail = "usuario@gmail.com"
+        )
+    }
+}
 
-                    if (recurringCharges.isEmpty()) {
-                        Text(
-                            "Nenhuma assinatura detectada ainda. Compras recorrentes a cada ~30 dias serão identificadas automaticamente.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
-                        )
-                    } else {
-                        recurringCharges.forEach { charge ->
-                            val hasCreep = charge.previousAmount != null && charge.lastAmount > charge.previousAmount
-                            val delta = if (hasCreep) charge.lastAmount - charge.previousAmount!! else 0L
+@Preview(name = "4. Tela Principal - Estado Vazio (Primeiros Passos)", showBackground = true, backgroundColor = 0xFF0B0F19)
+@Composable
+private fun MainScreenEmptyStatePreview() {
+    CardControlTheme {
+        MainScreenContent(
+            state = PreviewMockData.emptyState,
+            initialTab = 0
+        )
+    }
+}
 
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.White.copy(alpha = 0.04f))
-                                    .padding(horizontal = 10.dp, vertical = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Column(modifier = Modifier.weight(1f)) {
-                                    Row(
-                                        verticalAlignment = Alignment.CenterVertically,
-                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                    ) {
-                                        Text(
-                                            charge.merchant,
-                                            style = MaterialTheme.typography.bodyMedium,
-                                            fontWeight = FontWeight.SemiBold,
-                                            color = if (charge.isActive) TextPrimary else TextSecondary.copy(alpha = 0.6f)
-                                        )
-                                        if (hasCreep && charge.isActive) {
-                                            Surface(
-                                                shape = CircleShape,
-                                                color = SemanticDanger.copy(alpha = 0.2f),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, SemanticDanger.copy(alpha = 0.5f))
-                                            ) {
-                                                Text(
-                                                    "+${ReportEngine.formatCurrency(delta)}",
-                                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-                                                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-                                                    fontWeight = FontWeight.Bold,
-                                                    color = SemanticDanger
-                                                )
-                                            }
-                                        }
-                                    }
-                                    Text(
-                                        "Ciclo ~${charge.billingCycleDays} dias • ${if (charge.isActive) "Ativa" else "Pausada"}",
-                                        style = MaterialTheme.typography.labelSmall,
-                                        color = TextSecondary
-                                    )
-                                }
+@Preview(name = "5. Card de Assinaturas e Recorrências", showBackground = true, backgroundColor = 0xFF0B0F19)
+@Composable
+private fun RecurringChargesCardPreview() {
+    CardControlTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            RecurringChargesCard(
+                recurringCharges = PreviewMockData.recurring,
+                totalMonthlyRecurring = 9480L,
+                limitImpactPercent = 5.2,
+                priceCreepAlertCount = 1,
+                onToggleActive = { _, _ -> }
+            )
+        }
+    }
+}
 
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                                ) {
-                                    CurrencyText(
-                                        amountCents = charge.lastAmount,
-                                        fontSize = 15.sp,
-                                        fontWeight = FontWeight.Bold,
-                                        color = if (charge.isActive) PrimaryAccent else TextSecondary.copy(alpha = 0.5f)
-                                    )
-                                    Switch(
-                                        checked = charge.isActive,
-                                        onCheckedChange = { active -> onToggleActive(charge.id, active) },
-                                        colors = SwitchDefaults.colors(
-                                            checkedThumbColor = PrimaryAccent,
-                                            checkedTrackColor = SecondaryAccent.copy(alpha = 0.5f),
-                                            uncheckedThumbColor = TextSecondary,
-                                            uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
-                                        )
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
+@Preview(name = "6. Campo de Texto Liquid Glass", showBackground = true, backgroundColor = 0xFF0B0F19)
+@Composable
+private fun GlassTextFieldPreview() {
+    CardControlTheme {
+        Box(modifier = Modifier.padding(16.dp)) {
+            GlassTextField(
+                value = "Netflix",
+                onValueChange = {},
+                label = "Estabelecimento",
+                placeholder = "Ex: Supermercado",
+                leadingIcon = { Icon(Icons.Default.Storefront, contentDescription = null, tint = PrimaryAccent) }
+            )
         }
     }
 }

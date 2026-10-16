@@ -1,8 +1,8 @@
 # CardControl — Ponto de Retomada e Estado Canônico
 
 - Data da Última Auditoria: 16 de Outubro de 2026
-- Branch ativa: `main` (Sincronizada com `origin/main` no commit `9290989`)
-- HEAD SHA: `9290989`
+- Branch ativa: `main` (Sincronizada em `e7c02be`)
+- HEAD SHA: `e7c02be`
 - Versão Atual: `v2.3.0` (versionCode 5) — Liquid Glass Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
 - Release no GitHub: Atualizada em `v2.3.0` com novo APK `CardControl-v2.3.0.apk` assinado e verificado.
@@ -36,6 +36,15 @@
 4. **Saneamento e Limpeza Estrita de Binários:**
    - Remoção de binários compilados fora do canal oficial de Releases do GitHub.
    - Atualização de `dist/README.md` e regras de integridade do `.gitignore`.
+
+5. **Clean Code, Clean Architecture, Comentários Naturais e Compose Previews:**
+   - Modularização da interface Jetpack Compose: extração de diálogos modais (`ui/dialogs/`) e componentes reutilizáveis (`ui/components/`), enxugando `MainScreen.kt` em mais de 600 linhas líquidas.
+   - Suporte completo a `@Preview` com mock data e tooling preview integrado em `app/build.gradle.kts` e `LiquidGlass.kt`.
+   - Desacoplamento de `MainViewModel` com injeção de dependências no construtor para testabilidade sem dependência de singleton do SQLite.
+   - Unificação do pipeline de notificações em `CardRepository.processBankNotification` delegando para `BankNotificationProcessor` canônico com trava atômica.
+   - Eliminação de redundâncias em `BankNotificationParser.issuerFromCardName` com delegação direta a `SupportedBank.inferFromCardName`.
+   - Comentários naturais e explicativos em português brasileiro documentando decisões, concorrência e regras contábeis.
+   - Suíte de 97 testes unitários 100% aprovados e compilação `assembleDebug` validada.
 
 ---
 

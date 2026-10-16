@@ -393,4 +393,14 @@ class BankNotificationParserTest {
         val r = BankNotificationParser.parse("com.nu.production", null, noisy)
         assertTrue(r == null || r.amountCents == 1_000L)
     }
+
+    @Test
+    fun `issuerFromCardName infere emissor canonico e rejeita ambiguidades`() {
+        assertEquals("Nubank", BankNotificationParser.issuerFromCardName("Nubank Ultravioleta"))
+        assertEquals("Banco Inter", BankNotificationParser.issuerFromCardName("Cartão Inter Black"))
+        assertEquals("Itaú", BankNotificationParser.issuerFromCardName("Meu Itaú Click"))
+        assertEquals("Bradesco", BankNotificationParser.issuerFromCardName("Bradesco Elo Nanquim"))
+        assertNull(BankNotificationParser.issuerFromCardName("Cartão Genérico"))
+        assertNull(BankNotificationParser.issuerFromCardName("Nubank e Itaú juntos"))
+    }
 }

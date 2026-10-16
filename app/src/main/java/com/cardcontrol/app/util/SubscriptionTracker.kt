@@ -42,8 +42,8 @@ object SubscriptionTracker {
      * Analisa a lista de transações locais e detecta padrões recorrentes.
      */
     fun detectSubscriptions(transactions: List<TransactionEntity>): List<DetectionResult> {
-        // Installment purchases already contribute monthly obligations. Only transactions
-        // that represent a single charge can participate in subscription detection.
+        // Compras parceladas já geram obrigações mensais via parcelas individuais. Apenas transações
+        // à vista (1 parcela) participam da identificação de assinaturas periódicas.
         val eligibleTransactions = transactions.filter { it.installmentsCount == 1 }
         val grouped = eligibleTransactions.groupBy { Pair(normalizeMerchant(it.merchant), it.cardId) }
 
@@ -59,8 +59,8 @@ object SubscriptionTracker {
             val latestIntervalDays = previousTx?.let {
                 TimeUnit.MILLISECONDS.toDays(latestTx.purchaseTimestamp - it.purchaseTimestamp)
             }
-            // Validate the most recent interval, not any historical pair. An old matching
-            // cycle must not hide a newer irregular charge.
+            // Valida apenas o intervalo mais recente entre cobranças consecutivas. Um ciclo regular
+            // ocorrido no passado não deve mascarar uma cobrança irregular recente.
             val isDetectedByInterval =
                 latestIntervalDays != null && latestIntervalDays in MIN_CYCLE_DAYS..MAX_CYCLE_DAYS
             val observedIntervalDays = latestIntervalDays
@@ -110,7 +110,7 @@ object SubscriptionTracker {
     fun calculateLimitImpactPercent(committedFixedCost: Long, totalCardsLimit: Long): Double {
         if (totalCardsLimit <= 0L) return 0.0
         val percent = (committedFixedCost.toDouble() / totalCardsLimit.toDouble()) * 100.0
-        // Keep values above 100% visible; clamping would hide genuine overspending.
+        // Não limita a 100%: valores acima do teto total precisam ser exibidos para sinalizar sobregasto real.
         return percent
     }
 }

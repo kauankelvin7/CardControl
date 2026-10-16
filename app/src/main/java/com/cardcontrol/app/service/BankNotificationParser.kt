@@ -1,5 +1,6 @@
 package com.cardcontrol.app.service
 
+import com.cardcontrol.app.data.local.SupportedBank
 import com.cardcontrol.app.security.SecuritySanitizer
 import java.math.BigDecimal
 import java.math.RoundingMode
@@ -124,26 +125,14 @@ object BankNotificationParser {
     /** Emissores que podem ser vinculados a um cartão, na ordem de [SUPPORTED_BANKS]. */
     val SUPPORTED_ISSUERS: List<String> get() = SUPPORTED_BANKS.keys.mapNotNull { issuerFor(it) }.distinct()
 
-    private val ISSUER_NAME_KEYWORDS: Map<String, List<String>> = mapOf(
-        "Nubank" to listOf("nu", "nubank"),
-        "Inter" to listOf("inter"),
-        "Itaú" to listOf("itau", "itaucard"),
-        "C6 Bank" to listOf("c6", "c6bank"),
-        "Santander" to listOf("santander"),
-        "Bradesco" to listOf("bradesco"),
-        "Caixa" to listOf("caixa"),
-        "PicPay" to listOf("picpay"),
-        "Mercado Pago" to listOf("mercado", "mercadopago")
-    )
-
     /**
-     * Infere o emissor de um cartão legado (sem emissor gravado) pelo apelido, apenas por palavra inteira.
-     * Retorna nulo se nenhum ou mais de um emissor for reconhecido: nesse caso o cartão não é confirmado.
+     * Infere o emissor de um cartão pelo apelido delegando para [SupportedBank.inferFromCardName].
+     *
+     * Retorna nulo se nenhum emissor for reconhecido ou se o apelido for ambíguo (ex.: mais de um banco citado).
      */
     fun issuerFromCardName(cardName: String): String? {
-        val tokens = normalize(cardName).split(Regex("""[^a-z0-9]+""")).filter { it.isNotEmpty() }.toSet()
-        val matches = ISSUER_NAME_KEYWORDS.filterValues { keywords -> keywords.any { it in tokens } }.keys
-        return matches.singleOrNull()
+        val bank = SupportedBank.inferFromCardName(cardName)
+        return if (bank == SupportedBank.OTHER) null else bank.displayName
     }
 
     @Suppress("UNUSED_PARAMETER")
