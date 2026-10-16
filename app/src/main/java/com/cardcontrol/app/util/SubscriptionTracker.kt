@@ -42,8 +42,10 @@ object SubscriptionTracker {
      * Analisa a lista de transações locais e detecta padrões recorrentes.
      */
     fun detectSubscriptions(transactions: List<TransactionEntity>): List<DetectionResult> {
-        val singleInstallments = transactions.filter { it.installmentsCount == 1 }
-        val grouped = singleInstallments.groupBy { Pair(normalizeMerchant(it.merchant), it.cardId) }
+        // A manual recurring flag is explicit user intent and must not be lost just because
+        // the source transaction is split into installments.
+        val eligibleTransactions = transactions.filter { it.installmentsCount == 1 || it.isRecurring }
+        val grouped = eligibleTransactions.groupBy { Pair(normalizeMerchant(it.merchant), it.cardId) }
 
         val results = mutableListOf<DetectionResult>()
 
@@ -52,21 +54,18 @@ object SubscriptionTracker {
             if (sorted.isEmpty()) continue
 
             val hasManualFlag = sorted.any { it.isRecurring }
-            var isDetectedByInterval = false
-            var observedIntervalDays = 30
-
-            // Analisa pares consecutivos para verificar ciclo de 28-32 dias
-            for (i in 0 until sorted.size - 1) {
-                val t1 = sorted[i]
-                val t2 = sorted[i + 1]
-                val diffMillis = t2.purchaseTimestamp - t1.purchaseTimestamp
-                val days = TimeUnit.MILLISECONDS.toDays(diffMillis)
-                if (days in MIN_CYCLE_DAYS..MAX_CYCLE_DAYS) {
-                    isDetectedByInterval = true
-                    observedIntervalDays = days.toInt()
-                    break
-                }
+            val latestTx = sorted.last()
+            val previousTx = sorted.getOrNull(sorted.lastIndex - 1)
+            val latestIntervalDays = previousTx?.let {
+                TimeUnit.MILLISECONDS.toDays(latestTx.purchaseTimestamp - it.purchaseTimestamp)
             }
+            // Validate the most recent interval, not any historical pair. An old matching
+            // cycle must not hide a newer irregular charge.
+            val isDetectedByInterval =
+                latestIntervalDays != null && latestIntervalDays in MIN_CYCLE_DAYS..MAX_CYCLE_DAYS
+            val observedIntervalDays = latestIntervalDays
+                ?.takeIf { it in MIN_CYCLE_DAYS..MAX_CYCLE_DAYS }
+                ?.toInt() ?: 30
 
             if (hasManualFlag || isDetectedByInterval) {
                 val lastTx = sorted.last()
@@ -111,6 +110,7 @@ object SubscriptionTracker {
     fun calculateLimitImpactPercent(committedFixedCost: Long, totalCardsLimit: Long): Double {
         if (totalCardsLimit <= 0L) return 0.0
         val percent = (committedFixedCost.toDouble() / totalCardsLimit.toDouble()) * 100.0
-        return percent.coerceIn(0.0, 100.0)
+        // Keep values above 100% visible; clamping would hide genuine overspending.
+        return percent
     }
 }
