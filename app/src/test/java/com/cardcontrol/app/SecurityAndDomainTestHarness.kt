@@ -109,6 +109,12 @@ private class FakeAppDao : AppDao {
         recurringCharges.toList()
     }
 
+    override suspend fun deleteRecurringCharge(id: Long): Int = synchronized(recurringCharges) {
+        val previousSize = recurringCharges.size
+        recurringCharges.removeAll { it.id == id }
+        previousSize - recurringCharges.size
+    }
+
     override suspend fun getRecurringChargeByMerchantAndCard(merchant: String, cardId: Long): com.cardcontrol.app.data.local.RecurringChargeEntity? = synchronized(recurringCharges) {
         recurringCharges.firstOrNull { it.merchant.equals(merchant, ignoreCase = true) && it.cardId == cardId }
     }
