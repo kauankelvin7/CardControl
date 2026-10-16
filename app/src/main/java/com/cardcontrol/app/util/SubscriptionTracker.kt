@@ -42,9 +42,9 @@ object SubscriptionTracker {
      * Analisa a lista de transações locais e detecta padrões recorrentes.
      */
     fun detectSubscriptions(transactions: List<TransactionEntity>): List<DetectionResult> {
-        // A manual recurring flag is explicit user intent and must not be lost just because
-        // the source transaction is split into installments.
-        val eligibleTransactions = transactions.filter { it.installmentsCount == 1 || it.isRecurring }
+        // Installment purchases already contribute monthly obligations. Only transactions
+        // that represent a single charge can participate in subscription detection.
+        val eligibleTransactions = transactions.filter { it.installmentsCount == 1 }
         val grouped = eligibleTransactions.groupBy { Pair(normalizeMerchant(it.merchant), it.cardId) }
 
         val results = mutableListOf<DetectionResult>()
