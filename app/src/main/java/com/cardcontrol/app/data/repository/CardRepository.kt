@@ -245,35 +245,42 @@ class CardRepository(private val dao: AppDao) {
     suspend fun syncRecurringCharges() {
         val txs = dao.getAllTransactionsSnapshot()
         val detected = com.cardcontrol.app.util.SubscriptionTracker.detectSubscriptions(txs)
+        val existingCharges = dao.getAllRecurringChargesSnapshot().toMutableList()
         for (item in detected) {
-            val existing = dao.getRecurringChargeByMerchantAndCard(item.merchant, item.cardId)
+            val normalizedMerchant = com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(item.merchant)
+            val existingIndex = existingCharges.indexOfFirst {
+                it.cardId == item.cardId &&
+                    com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(it.merchant) == normalizedMerchant
+            }
+            val existing = existingCharges.getOrNull(existingIndex)
             if (existing != null) {
-                dao.insertRecurringCharge(
-                    existing.copy(
-                        holderId = item.holderId,
-                        expectedAmount = item.expectedAmount,
-                        lastAmount = item.lastAmount,
-                        previousAmount = item.previousAmount,
-                        billingCycleDays = item.billingCycleDays,
-                        lastChargedTimestamp = item.lastChargedTimestamp,
-                        isUserConfirmed = existing.isUserConfirmed || item.isUserConfirmed
-                    )
+                // Preserve the existing display label and ID while matching on canonical identity.
+                val updated = existing.copy(
+                    holderId = item.holderId,
+                    expectedAmount = item.expectedAmount,
+                    lastAmount = item.lastAmount,
+                    previousAmount = item.previousAmount,
+                    billingCycleDays = item.billingCycleDays,
+                    lastChargedTimestamp = item.lastChargedTimestamp,
+                    isUserConfirmed = existing.isUserConfirmed || item.isUserConfirmed
                 )
+                dao.insertRecurringCharge(updated)
+                existingCharges[existingIndex] = updated
             } else {
-                dao.insertRecurringCharge(
-                    RecurringChargeEntity(
-                        cardId = item.cardId,
-                        holderId = item.holderId,
-                        merchant = item.merchant,
-                        expectedAmount = item.expectedAmount,
-                        lastAmount = item.lastAmount,
-                        previousAmount = item.previousAmount,
-                        billingCycleDays = item.billingCycleDays,
-                        lastChargedTimestamp = item.lastChargedTimestamp,
-                        isActive = true,
-                        isUserConfirmed = item.isUserConfirmed
-                    )
+                val newCharge = RecurringChargeEntity(
+                    cardId = item.cardId,
+                    holderId = item.holderId,
+                    merchant = item.merchant,
+                    expectedAmount = item.expectedAmount,
+                    lastAmount = item.lastAmount,
+                    previousAmount = item.previousAmount,
+                    billingCycleDays = item.billingCycleDays,
+                    lastChargedTimestamp = item.lastChargedTimestamp,
+                    isActive = true,
+                    isUserConfirmed = item.isUserConfirmed
                 )
+                val insertedId = dao.insertRecurringCharge(newCharge)
+                existingCharges.add(newCharge.copy(id = insertedId))
             }
         }
     }
