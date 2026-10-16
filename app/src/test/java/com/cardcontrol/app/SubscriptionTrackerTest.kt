@@ -182,7 +182,7 @@ class SubscriptionTrackerTest {
     }
 
     @Test
-    fun `calcula impacto no limite com precisao e trata limites zerados`() {
+    fun `calcula impacto no limite e nao oculta quando ultrapassa 100 por cento`() {
         assertEquals(10.0, SubscriptionTracker.calculateLimitImpactPercent(10000L, 100000L), 0.001)
         assertEquals(25.5, SubscriptionTracker.calculateLimitImpactPercent(25500L, 100000L), 0.001)
         assertEquals(120.0, SubscriptionTracker.calculateLimitImpactPercent(120000L, 100000L), 0.001)
