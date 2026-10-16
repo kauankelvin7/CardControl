@@ -31,6 +31,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import com.cardcontrol.app.data.local.CreditCardEntity
 import com.cardcontrol.app.data.local.SupportedBank
 import com.cardcontrol.app.ui.theme.*
@@ -45,6 +46,7 @@ fun GlassTextField(
     label: String,
     modifier: Modifier = Modifier,
     placeholder: String? = null,
+    supportingText: String? = null,
     leadingIcon: (@Composable () -> Unit)? = null,
     trailingIcon: (@Composable () -> Unit)? = null,
     keyboardOptions: KeyboardOptions = KeyboardOptions.Default,
@@ -55,23 +57,25 @@ fun GlassTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it, color = GlassPalette.TextSecondary.copy(alpha = 0.5f)) } },
+        placeholder = placeholder?.let { { Text(it, color = TextSecondary.copy(alpha = 0.5f)) } },
+        supportingText = supportingText?.let { { Text(it, style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, color = TextSecondary)) } },
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
         keyboardOptions = keyboardOptions,
         visualTransformation = visualTransformation,
         singleLine = singleLine,
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth().heightIn(min = 58.dp),
         shape = RoundedCornerShape(14.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = GlassPalette.CyanGlow,
-            unfocusedBorderColor = Color.White.copy(alpha = 0.22f),
-            focusedLabelColor = GlassPalette.CyanGlow,
-            unfocusedLabelColor = GlassPalette.TextSecondary,
-            focusedTextColor = GlassPalette.TextPrimary,
-            unfocusedTextColor = GlassPalette.TextPrimary,
-            focusedContainerColor = GlassPalette.ObsidianBg.copy(alpha = 0.7f),
-            unfocusedContainerColor = GlassPalette.ObsidianBg.copy(alpha = 0.45f)
+            focusedBorderColor = PrimaryAccent,
+            unfocusedBorderColor = Color.White.copy(alpha = 0.18f),
+            focusedLabelColor = PrimaryAccent,
+            unfocusedLabelColor = TextSecondary,
+            focusedTextColor = TextPrimary,
+            unfocusedTextColor = TextPrimary,
+            focusedContainerColor = AppBackground.copy(alpha = 0.7f),
+            unfocusedContainerColor = AppBackground.copy(alpha = 0.45f),
+            cursorColor = PrimaryAccent
         )
     )
 }
@@ -119,8 +123,8 @@ fun MainScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 10.dp)
-                        .liquidGlassSurface(cornerRadius = 18.dp)
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
+                        .liquidGlassCard(cornerRadius = 18.dp)
+                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -128,65 +132,108 @@ fun MainScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Column {
-                            Text("CardControl", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.ExtraBold, color = GlassPalette.TextPrimary)
-                            Text("Motor Offline • Liquid Glass", style = MaterialTheme.typography.labelSmall, color = GlassPalette.CyanGlow)
+                            Text(
+                                "CardControl",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.ExtraBold,
+                                color = TextPrimary
+                            )
                         }
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(onClick = { viewModel.changeMonth(-1) }) { Icon(Icons.Default.ChevronLeft, null, tint = GlassPalette.TextPrimary) }
-                            Text("%02d/%d".format(state.selectedMonth, state.selectedYear), fontWeight = FontWeight.Bold, color = GlassPalette.TextPrimary)
-                            IconButton(onClick = { viewModel.changeMonth(1) }) { Icon(Icons.Default.ChevronRight, null, tint = GlassPalette.TextPrimary) }
+                        AnimatedVisibility(visible = selectedTab == 0) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
+                                IconButton(
+                                    onClick = { viewModel.changeMonth(-1) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChevronLeft,
+                                        contentDescription = "Mês anterior",
+                                        tint = TextPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                                Text(
+                                    "%02d/%d".format(state.selectedMonth, state.selectedYear),
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary,
+                                    style = MaterialTheme.typography.bodyMedium.copy(
+                                        fontFeatureSettings = "tnum",
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                )
+                                IconButton(
+                                    onClick = { viewModel.changeMonth(1) },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.ChevronRight,
+                                        contentDescription = "Próximo mês",
+                                        tint = TextPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             },
             bottomBar = {
-                NavigationBar(containerColor = GlassPalette.DeepSlateBg.copy(alpha = 0.92f), tonalElevation = 0.dp) {
+                val navItemColors = NavigationBarItemDefaults.colors(
+                    indicatorColor = PrimaryAccent.copy(alpha = 0.15f),
+                    selectedIconColor = PrimaryAccent,
+                    selectedTextColor = PrimaryAccent,
+                    unselectedIconColor = TextMuted,
+                    unselectedTextColor = TextMuted
+                )
+                NavigationBar(
+                    containerColor = AppBackgroundTop.copy(alpha = 0.95f),
+                    tonalElevation = 0.dp
+                ) {
                     NavigationBarItem(
                         selected = selectedTab == 0,
                         onClick = { selectedTab = 0 },
-                        icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, null) },
-                        label = { Text("Faturas") }
+                        icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = "Faturas") },
+                        label = { Text("Faturas") },
+                        colors = navItemColors
                     )
                     NavigationBarItem(
                         selected = selectedTab == 1,
                         onClick = { selectedTab = 1 },
-                        icon = { Icon(Icons.Default.CreditCard, null) },
-                        label = { Text("Cartões") }
+                        icon = { Icon(Icons.Default.CreditCard, contentDescription = "Cartões") },
+                        label = { Text("Cartões") },
+                        colors = navItemColors
                     )
                     NavigationBarItem(
                         selected = selectedTab == 2,
                         onClick = { selectedTab = 2 },
-                        icon = { Icon(Icons.Default.Security, null) },
-                        label = { Text("Automação") }
+                        icon = { Icon(Icons.Default.Security, contentDescription = "Automação") },
+                        label = { Text("Automação") },
+                        colors = navItemColors
                     )
                 }
             },
             floatingActionButton = {
                 if (selectedTab == 0 && state.cards.isNotEmpty() && state.holders.isNotEmpty()) {
-                    Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                        SmallFloatingActionButton(
-                            onClick = { showPaymentDialog = true },
-                            containerColor = GlassPalette.EmeraldAccent.copy(alpha = 0.9f),
-                            contentColor = GlassPalette.ObsidianBg
-                        ) { Icon(Icons.Default.Payments, contentDescription = "Abater Valor") }
-                        ExtendedFloatingActionButton(
-                            onClick = { showExpenseDialog = true },
-                            containerColor = GlassPalette.CyanGlow,
-                            contentColor = GlassPalette.ObsidianBg,
-                            icon = { Icon(Icons.Default.Add, null) },
-                            text = { Text("Lançar Compra", fontWeight = FontWeight.Bold) }
-                        )
-                    }
+                    ExtendedFloatingActionButton(
+                        onClick = { showExpenseDialog = true },
+                        containerColor = PrimaryAccent,
+                        contentColor = AppBackground,
+                        icon = { Icon(Icons.Default.Add, contentDescription = null, tint = AppBackground) },
+                        text = { Text("Lançar Compra", fontWeight = FontWeight.Bold, color = AppBackground) }
+                    )
                 } else if (selectedTab == 1) {
                     ExtendedFloatingActionButton(
                         onClick = {
                             cardBeingEdited = null
                             showCardDialog = true
                         },
-                        containerColor = GlassPalette.CyanGlow,
-                        contentColor = GlassPalette.ObsidianBg,
-                        icon = { Icon(Icons.Default.AddCard, contentDescription = null) },
-                        text = { Text("Adicionar cartão", fontWeight = FontWeight.Bold) }
+                        containerColor = PrimaryAccent,
+                        contentColor = AppBackground,
+                        icon = { Icon(Icons.Default.AddCard, contentDescription = null, tint = AppBackground) },
+                        text = { Text("Adicionar cartão", fontWeight = FontWeight.Bold, color = AppBackground) }
                     )
                 }
             }
@@ -196,57 +243,97 @@ fun MainScreen(
                     0 -> {
                         val remainingInvoice = (state.totalMonthInvoice - state.totalMonthPaid).coerceAtLeast(0L)
                         val paidRatio = if (state.totalMonthInvoice > 0L) (state.totalMonthPaid.toFloat() / state.totalMonthInvoice.toFloat()) else 0f
+                        val paidPercent = (paidRatio * 100f).toInt()
 
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .liquidGlassSurface(cornerRadius = 24.dp, accentTint = GlassPalette.CyanGlow)
-                                .padding(18.dp)
+                                .liquidGlassCard(cornerRadius = 24.dp, accentTint = PrimaryAccent)
+                                .padding(20.dp)
                         ) {
-                            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                Text("FATURA CONSOLIDADA DO MÊS", style = MaterialTheme.typography.labelSmall, color = GlassPalette.TextSecondary)
-                                Text(ReportEngine.formatCurrency(remainingInvoice), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.ExtraBold, color = GlassPalette.TextPrimary)
-                                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                    Text("Bruto: ${ReportEngine.formatCurrency(state.totalMonthInvoice)}", style = MaterialTheme.typography.bodySmall, color = GlassPalette.TextSecondary)
-                                    Text("Abatido: ${ReportEngine.formatCurrency(state.totalMonthPaid)}", style = MaterialTheme.typography.bodySmall, color = GlassPalette.EmeraldAccent)
+                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                OverlineText("Fatura Consolidada do Mês")
+                                CurrencyText(
+                                    amountCents = remainingInvoice,
+                                    fontSize = 32.sp,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = TextPrimary
+                                )
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        "Bruto: ${ReportEngine.formatCurrency(state.totalMonthInvoice)}",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                                        color = TextSecondary
+                                    )
+                                    Text(
+                                        "Abatido: ${ReportEngine.formatCurrency(state.totalMonthPaid)}",
+                                        style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                                        color = SemanticSuccess
+                                    )
                                 }
-                                LiquidGlassBar(progress = paidRatio, accentColor = GlassPalette.EmeraldAccent)
+                                LiquidGlassBar(progress = paidRatio, accentColor = SemanticSuccess)
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Text(
+                                        if (state.totalMonthInvoice > 0L) "$paidPercent% quitado" else "Sem fatura pendente",
+                                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                                        color = TextSecondary
+                                    )
+                                    if (state.totalMonthPaid > 0L) {
+                                        Text(
+                                            "Economia / Saldo positivo",
+                                            style = MaterialTheme.typography.labelSmall,
+                                            color = SemanticSuccess
+                                        )
+                                    }
+                                }
                             }
                         }
 
-                        Spacer(Modifier.height(12.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                        Spacer(Modifier.height(14.dp))
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
                             OutlinedButton(
                                 onClick = { showHolderDialog = true },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = GlassPalette.TextPrimary)
+                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
                             ) {
-                                Icon(Icons.Default.PersonAdd, null, tint = GlassPalette.CyanGlow)
+                                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryAccent)
                                 Spacer(Modifier.width(6.dp))
-                                Text("Pessoa", fontWeight = FontWeight.SemiBold)
+                                Text("Nova Pessoa", fontWeight = FontWeight.SemiBold)
                             }
-                            OutlinedButton(
-                                onClick = {
-                                    cardBeingEdited = null
-                                    showCardDialog = true
-                                },
-                                modifier = Modifier.weight(1f),
-                                shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = GlassPalette.TextPrimary)
-                            ) {
-                                Icon(Icons.Default.AddCard, null, tint = GlassPalette.IndigoGlow)
-                                Spacer(Modifier.width(6.dp))
-                                Text("Cartão", fontWeight = FontWeight.SemiBold)
+                            if (state.holders.isNotEmpty()) {
+                                OutlinedButton(
+                                    onClick = { showPaymentDialog = true },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(14.dp),
+                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                                ) {
+                                    Icon(Icons.Default.Payments, contentDescription = null, tint = SemanticSuccess)
+                                    Spacer(Modifier.width(6.dp))
+                                    Text("Abater / Pix", fontWeight = FontWeight.SemiBold)
+                                }
                             }
                         }
-                        Spacer(Modifier.height(12.dp))
+                        Spacer(Modifier.height(14.dp))
 
                         if (state.holders.isEmpty() || state.cards.isEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .liquidGlassSurface(cornerRadius = 20.dp, accentTint = GlassPalette.CyanGlow)
+                                    .liquidGlassCard(cornerRadius = 20.dp, accentTint = PrimaryAccent)
                                     .padding(22.dp)
                             ) {
                                 Column(
@@ -254,12 +341,12 @@ fun MainScreen(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Icon(Icons.Default.CreditCard, null, tint = GlassPalette.CyanGlow, modifier = Modifier.size(42.dp))
-                                    Text("Primeiros Passos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = GlassPalette.TextPrimary)
+                                    Icon(Icons.Default.CreditCard, contentDescription = null, tint = PrimaryAccent, modifier = Modifier.size(42.dp))
+                                    Text("Primeiros Passos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
                                     Text(
-                                        "Cadastre pelo menos uma Pessoa e um Cartão nos botões acima para começar a lançar gastos, controlar sublimites e visualizar as faturas em tempo real.",
+                                        "Cadastre pelo menos uma Pessoa e um Cartão (na aba Cartões) para começar a lançar compras, controlar sublimites e visualizar as faturas em tempo real.",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = GlassPalette.TextSecondary,
+                                        color = TextSecondary,
                                         textAlign = TextAlign.Center
                                     )
                                 }
@@ -279,25 +366,36 @@ fun MainScreen(
                                     val isExpanded = expandedHolderId == item.holder.id
                                     val usageRatio = if (item.holder.subLimit > 0L) (item.globalCommitted.toFloat() / item.holder.subLimit.toFloat()) else 0f
                                     val barColor = when {
-                                        usageRatio >= 1f -> GlassPalette.CoralDanger
-                                        usageRatio >= 0.8f -> GlassPalette.AmberWarn
-                                        else -> GlassPalette.CyanGlow
+                                        usageRatio >= 1f -> SemanticDanger
+                                        usageRatio >= 0.8f -> SemanticWarning
+                                        else -> PrimaryAccent
                                     }
 
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .liquidGlassSurface(cornerRadius = 20.dp, accentTint = barColor)
+                                            .liquidGlassCard(cornerRadius = 20.dp, accentTint = barColor)
                                             .clickable { expandedHolderId = if (isExpanded) null else item.holder.id }
                                             .padding(16.dp)
                                     ) {
                                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                                                Column {
-                                                    Text(item.holder.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = GlassPalette.TextPrimary)
-                                                    Text("A Pagar no Mês: ${ReportEngine.formatCurrency(item.monthlyNetDue)}", style = MaterialTheme.typography.bodyMedium, color = barColor, fontWeight = FontWeight.SemiBold)
+                                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                                                    Text(item.holder.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        Text("A Pagar no Mês: ", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                                        CurrencyText(
+                                                            amountCents = item.monthlyNetDue,
+                                                            fontSize = 15.sp,
+                                                            fontWeight = FontWeight.Bold,
+                                                            color = barColor
+                                                        )
+                                                    }
                                                 }
-                                                Row {
+                                                Row(verticalAlignment = Alignment.CenterVertically) {
                                                     IconButton(onClick = {
                                                         ReportEngine.sharePdfAndTextViaWhatsApp(
                                                             context = context,
@@ -308,20 +406,21 @@ fun MainScreen(
                                                             paidInMonth = item.monthlyPaid,
                                                             globalCommitted = item.globalCommitted
                                                         )
-                                                    }) { Icon(Icons.Default.Share, contentDescription = "Exportar PDF/WhatsApp", tint = GlassPalette.CyanGlow) }
+                                                    }) { Icon(Icons.Default.Share, contentDescription = "Exportar PDF/WhatsApp", tint = PrimaryAccent) }
                                                     Icon(
                                                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                                         contentDescription = null,
-                                                        tint = GlassPalette.TextSecondary,
+                                                        tint = TextSecondary,
                                                         modifier = Modifier.align(Alignment.CenterVertically)
                                                     )
                                                 }
                                             }
 
                                             if (item.holder.subLimit > 0L) {
+                                                val percentSubLimit = (usageRatio * 100f).toInt()
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                    Text("Sublimite Livre: ${ReportEngine.formatCurrency(item.availableSubLimit)}", style = MaterialTheme.typography.labelSmall, color = GlassPalette.TextSecondary)
-                                                    Text("Teto: ${ReportEngine.formatCurrency(item.holder.subLimit)}", style = MaterialTheme.typography.labelSmall, color = GlassPalette.TextSecondary)
+                                                    Text("Sublimite: $percentSubLimit% usado", style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"), color = TextSecondary)
+                                                    Text("Teto: ${ReportEngine.formatCurrency(item.holder.subLimit)}", style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"), color = TextSecondary)
                                                 }
                                                 LiquidGlassBar(progress = usageRatio, accentColor = barColor)
                                             }
@@ -330,7 +429,7 @@ fun MainScreen(
                                                 Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                                                     HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
                                                     if (item.monthlyInstallments.isEmpty()) {
-                                                        Text("Nenhuma parcela neste mês.", style = MaterialTheme.typography.bodySmall, color = GlassPalette.TextSecondary)
+                                                        Text("Nenhuma parcela neste mês.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
                                                     } else {
                                                         item.monthlyInstallments.forEach { inst ->
                                                             Row(
@@ -351,7 +450,7 @@ fun MainScreen(
                                                                             Icon(
                                                                                 Icons.Default.Repeat,
                                                                                 contentDescription = "Confirmar como Recorrente",
-                                                                                tint = GlassPalette.CyanGlow.copy(alpha = 0.75f),
+                                                                                tint = PrimaryAccent.copy(alpha = 0.75f),
                                                                                 modifier = Modifier.size(16.dp)
                                                                             )
                                                                         }
@@ -359,12 +458,17 @@ fun MainScreen(
                                                                         Text(
                                                                             "Parcelamento",
                                                                             style = MaterialTheme.typography.labelSmall,
-                                                                            color = GlassPalette.TextSecondary
+                                                                            color = TextSecondary
                                                                         )
                                                                     }
-                                                                    Text("• ${inst.merchantSnapshot} (${inst.installmentNumber}/${inst.totalInstallments})", style = MaterialTheme.typography.bodySmall, color = GlassPalette.TextPrimary)
+                                                                    Text("• ${inst.merchantSnapshot} (${inst.installmentNumber}/${inst.totalInstallments})", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
                                                                 }
-                                                                Text(ReportEngine.formatCurrency(inst.amount), style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Bold, color = GlassPalette.CyanGlow)
+                                                                CurrencyText(
+                                                                    amountCents = inst.amount,
+                                                                    fontSize = 14.sp,
+                                                                    fontWeight = FontWeight.Bold,
+                                                                    color = PrimaryAccent
+                                                                )
                                                             }
                                                         }
                                                     }
@@ -383,20 +487,20 @@ fun MainScreen(
                             verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             Column(
-                                modifier = Modifier.padding(top = 10.dp),
+                                modifier = Modifier.padding(top = 4.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
                                     "Seus cartões",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
-                                    color = GlassPalette.TextPrimary
+                                    color = TextPrimary
                                 )
                                 Text(
                                     if (state.cards.size == 1) "1 cartão cadastrado"
                                     else "${state.cards.size} cartões cadastrados",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = GlassPalette.TextSecondary
+                                    color = TextSecondary
                                 )
                             }
 
@@ -405,7 +509,7 @@ fun MainScreen(
                                     modifier = Modifier
                                         .weight(1f)
                                         .fillMaxWidth()
-                                        .liquidGlassSurface(cornerRadius = 22.dp, accentTint = GlassPalette.IndigoGlow)
+                                        .liquidGlassCard(cornerRadius = 22.dp, accentTint = SecondaryAccent)
                                         .padding(22.dp)
                                 ) {
                                     Column(
@@ -413,12 +517,12 @@ fun MainScreen(
                                         verticalArrangement = Arrangement.spacedBy(10.dp),
                                         modifier = Modifier.fillMaxWidth().align(Alignment.Center)
                                     ) {
-                                        Icon(Icons.Default.AddCard, null, tint = GlassPalette.IndigoGlow, modifier = Modifier.size(42.dp))
-                                        Text("Nenhum cartão por aqui", fontWeight = FontWeight.Bold, color = GlassPalette.TextPrimary)
+                                        Icon(Icons.Default.AddCard, contentDescription = null, tint = SecondaryAccent, modifier = Modifier.size(42.dp))
+                                        Text("Nenhum cartão por aqui", fontWeight = FontWeight.Bold, color = TextPrimary)
                                         Text(
                                             "Cadastre um cartão, escolha a pessoa responsável e acompanhe o limite disponível nesta tela.",
                                             style = MaterialTheme.typography.bodySmall,
-                                            color = GlassPalette.TextSecondary,
+                                            color = TextSecondary,
                                             textAlign = TextAlign.Center
                                         )
                                         OutlinedButton(
@@ -426,11 +530,13 @@ fun MainScreen(
                                                 cardBeingEdited = null
                                                 showCardDialog = true
                                             },
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = GlassPalette.TextPrimary)
+                                            shape = RoundedCornerShape(14.dp),
+                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
+                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
                                         ) {
-                                            Icon(Icons.Default.Add, contentDescription = null)
+                                            Icon(Icons.Default.Add, contentDescription = null, tint = PrimaryAccent)
                                             Spacer(Modifier.width(6.dp))
-                                            Text("Cadastrar cartão")
+                                            Text("Cadastrar cartão", fontWeight = FontWeight.SemiBold)
                                         }
                                     }
                                 }
@@ -449,7 +555,7 @@ fun MainScreen(
                                         Box(
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .liquidGlassSurface(cornerRadius = 22.dp, accentTint = GlassPalette.IndigoGlow)
+                                                .liquidGlassCard(cornerRadius = 22.dp, accentTint = SecondaryAccent)
                                                 .padding(18.dp)
                                         ) {
                                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -457,18 +563,19 @@ fun MainScreen(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                                                        val bankInfo = SupportedBank.fromId(item.card.bank)
+                                                    val bankInfo = SupportedBank.fromId(item.card.bank)
+                                                    val displayTitle = if (item.card.name.isNotBlank()) item.card.name else bankInfo.displayName
+                                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                                                         Text(
-                                                            item.card.name,
+                                                            displayTitle,
                                                             style = MaterialTheme.typography.titleMedium,
                                                             fontWeight = FontWeight.Bold,
-                                                            color = GlassPalette.TextPrimary
+                                                            color = TextPrimary
                                                         )
                                                         Text(
-                                                            "${bankInfo.displayName} •••• ${item.card.lastFourDigits}",
-                                                            style = MaterialTheme.typography.titleSmall,
-                                                            color = GlassPalette.CyanGlow
+                                                            "•••• ${item.card.lastFourDigits}",
+                                                            style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"),
+                                                            color = TextSecondary
                                                         )
                                                     }
                                                     IconButton(
@@ -477,53 +584,78 @@ fun MainScreen(
                                                             showCardDialog = true
                                                         }
                                                     ) {
-                                                        Icon(Icons.Default.Edit, contentDescription = "Editar cartão ${item.card.name}", tint = GlassPalette.CyanGlow)
+                                                        Icon(Icons.Default.Edit, contentDescription = "Editar cartão ${item.card.name}", tint = TextSecondary)
                                                     }
                                                     IconButton(
                                                         onClick = { cardPendingDeletion = item.card }
                                                     ) {
-                                                        Icon(Icons.Default.Delete, contentDescription = "Excluir cartão ${item.card.name}", tint = GlassPalette.CoralDanger)
+                                                        Icon(Icons.Default.Delete, contentDescription = "Excluir cartão ${item.card.name}", tint = TextSecondary)
                                                     }
                                                 }
 
-                                                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                                                    Icon(
-                                                        Icons.Default.Person,
-                                                        contentDescription = null,
-                                                        tint = if (linkedHolder == null) GlassPalette.AmberWarn else GlassPalette.CyanGlow,
-                                                        modifier = Modifier.size(18.dp)
-                                                    )
-                                                    Text(
-                                                        linkedHolder?.name?.let { "Pessoa vinculada: $it" } ?: "Nenhuma pessoa vinculada",
-                                                        style = MaterialTheme.typography.bodySmall,
-                                                        color = if (linkedHolder == null) GlassPalette.AmberWarn else GlassPalette.TextSecondary
-                                                    )
+                                                Surface(
+                                                    shape = RoundedCornerShape(8.dp),
+                                                    color = Color.White.copy(alpha = 0.07f),
+                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.06f))
+                                                ) {
+                                                    Row(
+                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.Person,
+                                                            contentDescription = null,
+                                                            tint = if (linkedHolder == null) SemanticWarning else PrimaryAccent,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                        Text(
+                                                            linkedHolder?.name?.let { "Pessoa vinculada: $it" } ?: "Nenhuma pessoa vinculada",
+                                                            style = MaterialTheme.typography.labelSmall,
+                                                            color = if (linkedHolder == null) SemanticWarning else TextSecondary
+                                                        )
+                                                    }
                                                 }
 
                                                 Text(
                                                     "Fecha dia ${item.card.closingDay} • Vence dia ${item.card.dueDay}",
-                                                    style = MaterialTheme.typography.labelMedium,
-                                                    color = GlassPalette.TextSecondary
+                                                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
+                                                    color = TextSecondary
                                                 )
+
                                                 Row(
                                                     modifier = Modifier.fillMaxWidth(),
                                                     horizontalArrangement = Arrangement.SpaceBetween,
                                                     verticalAlignment = Alignment.CenterVertically
                                                 ) {
-                                                    Text("Disponível", style = MaterialTheme.typography.labelMedium, color = GlassPalette.TextSecondary)
-                                                    Text(
-                                                        ReportEngine.formatCurrency(item.availableLimit),
-                                                        style = MaterialTheme.typography.titleMedium,
+                                                    Text("Disponível", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                                                    CurrencyText(
+                                                        amountCents = item.availableLimit,
+                                                        fontSize = 20.sp,
                                                         fontWeight = FontWeight.Bold,
-                                                        color = GlassPalette.EmeraldAccent
+                                                        color = SemanticSuccess
                                                     )
                                                 }
-                                                LiquidGlassBar(progress = ratio, accentColor = GlassPalette.IndigoGlow)
-                                                Text(
-                                                    "Limite total: ${ReportEngine.formatCurrency(item.card.totalLimit)}",
-                                                    style = MaterialTheme.typography.labelSmall,
-                                                    color = GlassPalette.TextSecondary
-                                                )
+
+                                                val percentUsed = (ratio * 100f).toInt()
+                                                Row(
+                                                    modifier = Modifier.fillMaxWidth(),
+                                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                                    verticalAlignment = Alignment.CenterVertically
+                                                ) {
+                                                    Text(
+                                                        "Utilizado: $percentUsed%",
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                                                        color = TextSecondary
+                                                    )
+                                                    Text(
+                                                        "Limite total: ${ReportEngine.formatCurrency(item.card.totalLimit)}",
+                                                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
+                                                        color = TextSecondary
+                                                    )
+                                                }
+                                                val barColor = if (ratio >= 0.9f) SemanticDanger else if (ratio >= 0.75f) SemanticWarning else SecondaryAccent
+                                                LiquidGlassBar(progress = ratio, accentColor = barColor)
                                             }
                                         }
                                     }
@@ -537,71 +669,122 @@ fun MainScreen(
                         var pass by remember { mutableStateOf(viewModel.credentialStore.getAppPassword()) }
                         var showPassword by remember { mutableStateOf(false) }
 
-                        Box(modifier = Modifier.fillMaxWidth().liquidGlassSurface(cornerRadius = 22.dp).padding(18.dp)) {
-                            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                                Text("Captura em Tempo Real & Cofre Keystore", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = GlassPalette.TextPrimary)
+                        Column(
+                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
+                            verticalArrangement = Arrangement.spacedBy(14.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(top = 4.dp),
+                                verticalArrangement = Arrangement.spacedBy(4.dp)
+                            ) {
                                 Text(
-                                    "O CardControl escuta compras emitidas pelos apps bancários e pode enviar comprovantes automáticos por e-mail com o saldo restante do titular.",
+                                    "Automação & Notificações",
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = TextPrimary
+                                )
+                                Text(
+                                    "Captura em tempo real e cofre de credenciais",
                                     style = MaterialTheme.typography.bodySmall,
-                                    color = GlassPalette.TextSecondary
+                                    color = TextSecondary
                                 )
-                                Button(
-                                    onClick = onOpenNotificationSettings,
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(14.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = GlassPalette.IndigoGlow)
-                                ) {
-                                    Icon(Icons.Default.NotificationsActive, null)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Conceder Permissão às Notificações", fontWeight = FontWeight.Bold)
-                                }
+                            }
 
-                                HorizontalDivider(color = Color.White.copy(alpha = 0.12f), modifier = Modifier.padding(vertical = 4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .liquidGlassCard(cornerRadius = 22.dp, accentTint = SecondaryAccent)
+                                    .padding(20.dp)
+                            ) {
+                                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+                                    Text(
+                                        "Captura em Tempo Real & Cofre Keystore",
+                                        style = MaterialTheme.typography.titleMedium,
+                                        fontWeight = FontWeight.Bold,
+                                        color = TextPrimary
+                                    )
+                                    Text(
+                                        "O CardControl escuta compras emitidas pelos apps bancários e pode enviar comprovantes automáticos por e-mail com o saldo restante do titular.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = TextSecondary
+                                    )
+                                    Button(
+                                        onClick = onOpenNotificationSettings,
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = SecondaryAccent,
+                                            contentColor = Color.White
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Color.White)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Conceder Permissão às Notificações", color = Color.White, fontWeight = FontWeight.Bold)
+                                    }
 
-                                Text("Configuração de Alerta por E-mail (Opcional)", style = MaterialTheme.typography.labelLarge, fontWeight = FontWeight.SemiBold, color = GlassPalette.CyanGlow)
+                                    HorizontalDivider(color = Color.White.copy(alpha = 0.12f), modifier = Modifier.padding(vertical = 4.dp))
 
-                                GlassTextField(
-                                    value = email,
-                                    onValueChange = { email = it },
-                                    label = "Gmail Remetente (SMTP TLS)",
-                                    placeholder = "seuemail@gmail.com",
-                                    leadingIcon = { Icon(Icons.Default.Email, null, tint = GlassPalette.CyanGlow) },
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
-                                )
+                                    OverlineText("Configuração de Alerta por E-mail (Opcional)", color = PrimaryAccent)
 
-                                GlassTextField(
-                                    value = pass,
-                                    onValueChange = { pass = it },
-                                    label = "Senha de App Google (16 caracteres)",
-                                    placeholder = "xxxx xxxx xxxx xxxx",
-                                    leadingIcon = { Icon(Icons.Default.Key, null, tint = GlassPalette.AmberWarn) },
-                                    trailingIcon = {
-                                        IconButton(onClick = { showPassword = !showPassword }) {
-                                            Icon(
-                                                imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                                contentDescription = if (showPassword) "Ocultar senha" else "Ver senha",
-                                                tint = GlassPalette.TextSecondary
-                                            )
-                                        }
-                                    },
-                                    visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
-                                )
+                                    GlassTextField(
+                                        value = email,
+                                        onValueChange = { email = it },
+                                        label = "Gmail Remetente",
+                                        placeholder = "seuemail@gmail.com",
+                                        supportingText = "Envio automático e seguro via SMTP TLS",
+                                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = PrimaryAccent) },
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
+                                    )
 
-                                Button(
-                                    onClick = {
-                                        viewModel.credentialStore.saveSmtpCredentials(email, pass)
-                                        showSavedMessage = true
-                                    },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    shape = RoundedCornerShape(14.dp),
-                                    colors = ButtonDefaults.buttonColors(containerColor = GlassPalette.CyanGlow)
-                                ) {
-                                    Icon(Icons.Default.Lock, null, tint = GlassPalette.ObsidianBg)
-                                    Spacer(Modifier.width(8.dp))
-                                    Text("Criptografar no Android Keystore", color = GlassPalette.ObsidianBg, fontWeight = FontWeight.ExtraBold)
+                                    GlassTextField(
+                                        value = pass,
+                                        onValueChange = { pass = it },
+                                        label = "Senha de App Google",
+                                        placeholder = "xxxx xxxx xxxx xxxx",
+                                        supportingText = "Código de 16 caracteres gerado na sua Conta Google",
+                                        leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = PrimaryAccent) },
+                                        trailingIcon = {
+                                            IconButton(onClick = { showPassword = !showPassword }) {
+                                                Icon(
+                                                    imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                                    contentDescription = if (showPassword) "Ocultar senha" else "Ver senha",
+                                                    tint = TextSecondary
+                                                )
+                                            }
+                                        },
+                                        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
+                                    )
+
+                                    Button(
+                                        onClick = {
+                                            viewModel.credentialStore.saveSmtpCredentials(email, pass)
+                                            showSavedMessage = true
+                                        },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        shape = RoundedCornerShape(14.dp),
+                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = PrimaryAccent,
+                                            contentColor = AppBackground
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.Lock, contentDescription = null, tint = AppBackground)
+                                        Spacer(Modifier.width(8.dp))
+                                        Text("Criptografar no Android Keystore", color = AppBackground, fontWeight = FontWeight.ExtraBold)
+                                    }
                                 }
                             }
+
+                            Spacer(Modifier.height(8.dp))
+                            Text(
+                                "CardControl • Motor Offline • Liquid Glass",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = TextMuted,
+                                modifier = Modifier.fillMaxWidth().padding(bottom = 96.dp),
+                                textAlign = TextAlign.Center
+                            )
                         }
                     }
                 }
@@ -624,20 +807,20 @@ fun MainScreen(
 
         AlertDialog(
             onDismissRequest = { showExpenseDialog = false },
-            containerColor = GlassPalette.DeepSlateBg,
-            titleContentColor = GlassPalette.TextPrimary,
+            containerColor = AppBackgroundTop,
+            titleContentColor = TextPrimary,
             shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassPalette.SpecularHighlight, RoundedCornerShape(24.dp)),
+            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.AddShoppingCart, null, tint = GlassPalette.CyanGlow)
+                    Icon(Icons.Default.AddShoppingCart, null, tint = PrimaryAccent)
                     Spacer(Modifier.width(8.dp))
                     Text("Lançar Compra", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Cartão Utilizado:", style = MaterialTheme.typography.labelMedium, color = GlassPalette.TextSecondary)
+                    Text("Cartão Utilizado:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
                     Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         LiquidPillSelector(
                             options = state.cards.map { it.id to "${it.name} (${it.lastFourDigits})" },
@@ -650,7 +833,7 @@ fun MainScreen(
                             }
                         )
                     }
-                    Text("Responsável pelo Gasto:", style = MaterialTheme.typography.labelMedium, color = GlassPalette.TextSecondary)
+                    Text("Responsável pelo Gasto:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
                     Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         LiquidPillSelector(
                             options = state.holders.map { it.id to it.name },
@@ -663,7 +846,7 @@ fun MainScreen(
                         onValueChange = { merchant = it },
                         label = "Estabelecimento",
                         placeholder = "Ex: Mercado Livre, Posto...",
-                        leadingIcon = { Icon(Icons.Default.Storefront, null, tint = GlassPalette.CyanGlow) },
+                        leadingIcon = { Icon(Icons.Default.Storefront, null, tint = PrimaryAccent) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                     )
                     GlassTextField(
@@ -671,7 +854,7 @@ fun MainScreen(
                         onValueChange = { amount = it },
                         label = "Valor Total (R$)",
                         placeholder = "0,00",
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = GlassPalette.EmeraldAccent) },
+                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = SemanticSuccess) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
                     )
                     GlassTextField(
@@ -679,14 +862,14 @@ fun MainScreen(
                         onValueChange = { parcels = it },
                         label = "Parcelas (1 a 72)",
                         placeholder = "1",
-                        leadingIcon = { Icon(Icons.Default.Layers, null, tint = GlassPalette.IndigoGlow) },
+                        leadingIcon = { Icon(Icons.Default.Layers, null, tint = SecondaryAccent) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showExpenseDialog = false }) {
-                    Text("Cancelar", color = GlassPalette.TextSecondary)
+                    Text("Cancelar", color = TextSecondary)
                 }
             },
             confirmButton = {
@@ -698,10 +881,10 @@ fun MainScreen(
                             showExpenseDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GlassPalette.CyanGlow),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent, contentColor = AppBackground),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Confirmar", color = GlassPalette.ObsidianBg, fontWeight = FontWeight.Bold)
+                    Text("Confirmar", color = AppBackground, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -715,25 +898,25 @@ fun MainScreen(
 
         AlertDialog(
             onDismissRequest = { showPaymentDialog = false },
-            containerColor = GlassPalette.DeepSlateBg,
-            titleContentColor = GlassPalette.TextPrimary,
+            containerColor = AppBackgroundTop,
+            titleContentColor = TextPrimary,
             shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassPalette.SpecularHighlight, RoundedCornerShape(24.dp)),
+            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Payments, null, tint = GlassPalette.EmeraldAccent)
+                    Icon(Icons.Default.Payments, null, tint = SemanticSuccess)
                     Spacer(Modifier.width(8.dp))
                     Text("Registrar Abatimento / Pix", fontWeight = FontWeight.Bold)
                 }
             },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                    Text("Quem Pagou:", style = MaterialTheme.typography.labelMedium, color = GlassPalette.TextSecondary)
+                    Text("Quem Pagou:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
                     Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         LiquidPillSelector(options = state.holders.map { it.id to it.name }, selectedId = selectedHolderId, onSelect = { selectedHolderId = it })
                     }
                     if (state.cards.isNotEmpty()) {
-                        Text("Liberar Limite do Cartão:", style = MaterialTheme.typography.labelMedium, color = GlassPalette.TextSecondary)
+                        Text("Liberar Limite do Cartão:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
                         Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                             LiquidPillSelector(options = state.cards.map { it.id to it.name }, selectedId = selectedCardId, onSelect = { selectedCardId = it })
                         }
@@ -743,7 +926,7 @@ fun MainScreen(
                         onValueChange = { amount = it },
                         label = "Valor Recebido (R$)",
                         placeholder = "0,00",
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = GlassPalette.EmeraldAccent) },
+                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = SemanticSuccess) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
                     )
                     GlassTextField(
@@ -751,14 +934,14 @@ fun MainScreen(
                         onValueChange = { notes = it },
                         label = "Observação",
                         placeholder = "Ex: Pix fatura adiantada",
-                        leadingIcon = { Icon(Icons.Default.EditNote, null, tint = GlassPalette.CyanGlow) },
+                        leadingIcon = { Icon(Icons.Default.EditNote, null, tint = PrimaryAccent) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showPaymentDialog = false }) {
-                    Text("Cancelar", color = GlassPalette.TextSecondary)
+                    Text("Cancelar", color = TextSecondary)
                 }
             },
             confirmButton = {
@@ -770,10 +953,10 @@ fun MainScreen(
                             showPaymentDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GlassPalette.EmeraldAccent),
+                    colors = ButtonDefaults.buttonColors(containerColor = SemanticSuccess, contentColor = AppBackground),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Abater", color = GlassPalette.ObsidianBg, fontWeight = FontWeight.Bold)
+                    Text("Abater", color = AppBackground, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -787,13 +970,13 @@ fun MainScreen(
 
         AlertDialog(
             onDismissRequest = { showHolderDialog = false },
-            containerColor = GlassPalette.DeepSlateBg,
-            titleContentColor = GlassPalette.TextPrimary,
+            containerColor = AppBackgroundTop,
+            titleContentColor = TextPrimary,
             shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassPalette.SpecularHighlight, RoundedCornerShape(24.dp)),
+            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.PersonAdd, null, tint = GlassPalette.CyanGlow)
+                    Icon(Icons.Default.PersonAdd, null, tint = PrimaryAccent)
                     Spacer(Modifier.width(8.dp))
                     Text("Novo Titular / Dependente", fontWeight = FontWeight.Bold)
                 }
@@ -805,7 +988,7 @@ fun MainScreen(
                         onValueChange = { name = it },
                         label = "Nome Completo",
                         placeholder = "Ex: Carlos Silva",
-                        leadingIcon = { Icon(Icons.Default.Person, null, tint = GlassPalette.CyanGlow) },
+                        leadingIcon = { Icon(Icons.Default.Person, null, tint = PrimaryAccent) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                     )
                     GlassTextField(
@@ -813,7 +996,7 @@ fun MainScreen(
                         onValueChange = { whats = it },
                         label = "WhatsApp com DDD",
                         placeholder = "Ex: 5511999998888",
-                        leadingIcon = { Icon(Icons.Default.Phone, null, tint = GlassPalette.EmeraldAccent) },
+                        leadingIcon = { Icon(Icons.Default.Phone, null, tint = SemanticSuccess) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
                     )
                     GlassTextField(
@@ -821,7 +1004,7 @@ fun MainScreen(
                         onValueChange = { email = it },
                         label = "E-mail para Alertas Instantâneos",
                         placeholder = "carlos@gmail.com",
-                        leadingIcon = { Icon(Icons.Default.Email, null, tint = GlassPalette.IndigoGlow) },
+                        leadingIcon = { Icon(Icons.Default.Email, null, tint = SecondaryAccent) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
                     )
                     GlassTextField(
@@ -829,14 +1012,14 @@ fun MainScreen(
                         onValueChange = { subLimit = it },
                         label = "Sublimite Mensal (R$)",
                         placeholder = "0,00 (0 para sem teto)",
-                        leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, null, tint = GlassPalette.AmberWarn) },
+                        leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, null, tint = SemanticWarning) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done)
                     )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showHolderDialog = false }) {
-                    Text("Cancelar", color = GlassPalette.TextSecondary)
+                    Text("Cancelar", color = TextSecondary)
                 }
             },
             confirmButton = {
@@ -848,10 +1031,10 @@ fun MainScreen(
                             showHolderDialog = false
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GlassPalette.CyanGlow),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent, contentColor = AppBackground),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Salvar", color = GlassPalette.ObsidianBg, fontWeight = FontWeight.Bold)
+                    Text("Salvar", color = AppBackground, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -861,12 +1044,13 @@ fun MainScreen(
         val pendingCard = cardPendingDeletion!!
         AlertDialog(
             onDismissRequest = { cardPendingDeletion = null },
-            containerColor = GlassPalette.DeepSlateBg,
-            titleContentColor = GlassPalette.TextPrimary,
+            containerColor = AppBackgroundTop,
+            titleContentColor = TextPrimary,
             shape = RoundedCornerShape(24.dp),
+            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.Delete, contentDescription = null, tint = GlassPalette.CoralDanger)
+                    Icon(Icons.Default.Delete, contentDescription = null, tint = SemanticDanger)
                     Spacer(Modifier.width(8.dp))
                     Text("Excluir cartão?", fontWeight = FontWeight.Bold)
                 }
@@ -874,12 +1058,12 @@ fun MainScreen(
             text = {
                 Text(
                     "O cartão \"${pendingCard.name}\" só será excluído se não tiver compras, parcelas ou pagamentos vinculados. Assim, o histórico financeiro não será apagado por engano.",
-                    color = GlassPalette.TextSecondary
+                    color = TextSecondary
                 )
             },
             dismissButton = {
                 TextButton(onClick = { cardPendingDeletion = null }) {
-                    Text("Cancelar", color = GlassPalette.TextSecondary)
+                    Text("Cancelar", color = TextSecondary)
                 }
             },
             confirmButton = {
@@ -888,10 +1072,10 @@ fun MainScreen(
                         viewModel.deleteCard(pendingCard.id)
                         cardPendingDeletion = null
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GlassPalette.CoralDanger),
+                    colors = ButtonDefaults.buttonColors(containerColor = SemanticDanger, contentColor = Color.White),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text("Excluir cartão", color = GlassPalette.TextPrimary, fontWeight = FontWeight.Bold)
+                    Text("Excluir cartão", color = Color.White, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -921,13 +1105,13 @@ fun MainScreen(
                 showCardDialog = false
                 cardBeingEdited = null
             },
-            containerColor = GlassPalette.DeepSlateBg,
-            titleContentColor = GlassPalette.TextPrimary,
+            containerColor = AppBackgroundTop,
+            titleContentColor = TextPrimary,
             shape = RoundedCornerShape(24.dp),
-            modifier = Modifier.border(1.dp, GlassPalette.SpecularHighlight, RoundedCornerShape(24.dp)),
+            modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
             title = {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(Icons.Default.CreditCard, null, tint = GlassPalette.IndigoGlow)
+                    Icon(Icons.Default.CreditCard, null, tint = SecondaryAccent)
                     Spacer(Modifier.width(8.dp))
                     Text(if (cardToEdit == null) "Novo cartão" else "Editar cartão", fontWeight = FontWeight.Bold)
                 }
@@ -937,12 +1121,7 @@ fun MainScreen(
                     modifier = Modifier.verticalScroll(rememberScrollState()),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    Text(
-                        "Banco emissor",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = GlassPalette.CyanGlow
-                    )
+                    OverlineText("Banco emissor", color = PrimaryAccent)
                     Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         LiquidPillSelector(
                             options = SupportedBank.entries.map { it.id to it.displayName },
@@ -961,34 +1140,29 @@ fun MainScreen(
                     Text(
                         "Identifica a origem das notificações bancárias para captura automática.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = GlassPalette.TextSecondary
+                        color = TextSecondary
                     )
 
-                    Text(
-                        "Identificação do cartão",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = GlassPalette.CyanGlow
-                    )
+                    OverlineText("Identificação do cartão", color = PrimaryAccent)
                     GlassTextField(
                         value = name,
                         onValueChange = { name = it; formError = null },
                         label = "Apelido do cartão",
                         placeholder = "Ex.: Meu Cartão Principal",
-                        leadingIcon = { Icon(Icons.Default.CreditCard, null, tint = GlassPalette.IndigoGlow) },
+                        leadingIcon = { Icon(Icons.Default.CreditCard, null, tint = SecondaryAccent) },
                         keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                     )
                     Text(
                         "Você pode dar o apelido que preferir. A captura automática continuará funcionando.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = GlassPalette.TextSecondary
+                        color = TextSecondary
                     )
                     GlassTextField(
                         value = lastFour,
                         onValueChange = { value -> lastFour = value.filter { it.isDigit() }.takeLast(4); formError = null },
                         label = "Últimos 4 dígitos",
                         placeholder = "Ex.: 0359",
-                        leadingIcon = { Icon(Icons.Default.Pin, null, tint = GlassPalette.CyanGlow) },
+                        leadingIcon = { Icon(Icons.Default.Pin, null, tint = PrimaryAccent) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next)
                     )
                     GlassTextField(
@@ -996,7 +1170,7 @@ fun MainScreen(
                         onValueChange = { limit = it; formError = null },
                         label = "Limite total (R$)",
                         placeholder = "Ex.: 5000,00",
-                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = GlassPalette.EmeraldAccent) },
+                        leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = SemanticSuccess) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
                     )
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -1005,7 +1179,7 @@ fun MainScreen(
                             onValueChange = { closing = it; formError = null },
                             label = "Fechamento (1–28)",
                             placeholder = "10",
-                            leadingIcon = { Icon(Icons.Default.CalendarToday, null, tint = GlassPalette.TextSecondary) },
+                            leadingIcon = { Icon(Icons.Default.CalendarToday, null, tint = TextSecondary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Next),
                             modifier = Modifier.weight(1f)
                         )
@@ -1014,19 +1188,14 @@ fun MainScreen(
                             onValueChange = { due = it; formError = null },
                             label = "Vencimento (1–28)",
                             placeholder = "17",
-                            leadingIcon = { Icon(Icons.Default.Event, null, tint = GlassPalette.TextSecondary) },
+                            leadingIcon = { Icon(Icons.Default.Event, null, tint = TextSecondary) },
                             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done),
                             modifier = Modifier.weight(1f)
                         )
                     }
 
                     HorizontalDivider(color = Color.White.copy(alpha = 0.12f), modifier = Modifier.padding(vertical = 4.dp))
-                    Text(
-                        "Pessoa responsável",
-                        style = MaterialTheme.typography.labelLarge,
-                        fontWeight = FontWeight.SemiBold,
-                        color = GlassPalette.CyanGlow
-                    )
+                    OverlineText("Pessoa responsável", color = PrimaryAccent)
                     Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         LiquidPillSelector(
                             options = listOf(0L to "Sem vínculo") + state.holders.map { it.id to it.name },
@@ -1037,10 +1206,10 @@ fun MainScreen(
                     Text(
                         "Essa pessoa será usada nas compras capturadas automaticamente. Os lançamentos antigos não mudam.",
                         style = MaterialTheme.typography.bodySmall,
-                        color = GlassPalette.TextSecondary
+                        color = TextSecondary
                     )
                     if (formError != null) {
-                        Text(formError!!, style = MaterialTheme.typography.bodySmall, color = GlassPalette.CoralDanger)
+                        Text(formError!!, style = MaterialTheme.typography.bodySmall, color = SemanticDanger)
                     }
                 }
             },
@@ -1051,7 +1220,7 @@ fun MainScreen(
                         cardBeingEdited = null
                     }
                 ) {
-                    Text("Cancelar", color = GlassPalette.TextSecondary)
+                    Text("Cancelar", color = TextSecondary)
                 }
             },
             confirmButton = {
@@ -1097,10 +1266,10 @@ fun MainScreen(
                             cardBeingEdited = null
                         }
                     },
-                    colors = ButtonDefaults.buttonColors(containerColor = GlassPalette.IndigoGlow),
+                    colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent, contentColor = AppBackground),
                     shape = RoundedCornerShape(12.dp)
                 ) {
-                    Text(if (cardToEdit == null) "Cadastrar cartão" else "Salvar alterações", color = GlassPalette.TextPrimary, fontWeight = FontWeight.Bold)
+                    Text(if (cardToEdit == null) "Cadastrar cartão" else "Salvar alterações", color = AppBackground, fontWeight = FontWeight.Bold)
                 }
             }
         )
@@ -1121,9 +1290,9 @@ fun RecurringChargesCard(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .liquidGlassSurface(
+            .liquidGlassCard(
                 cornerRadius = 20.dp,
-                accentTint = if (priceCreepAlertCount > 0) GlassPalette.AmberWarn else GlassPalette.IndigoGlow
+                accentTint = if (priceCreepAlertCount > 0) SemanticWarning else SecondaryAccent
             )
             .padding(16.dp)
     ) {
@@ -1139,14 +1308,14 @@ fun RecurringChargesCard(
                     Icon(
                         imageVector = Icons.Default.Autorenew,
                         contentDescription = null,
-                        tint = if (priceCreepAlertCount > 0) GlassPalette.AmberWarn else GlassPalette.IndigoGlow,
+                        tint = if (priceCreepAlertCount > 0) SemanticWarning else SecondaryAccent,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         "Assinaturas & Recorrências",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = GlassPalette.TextPrimary
+                        color = TextPrimary
                     )
                 }
 
@@ -1154,8 +1323,8 @@ fun RecurringChargesCard(
                     if (priceCreepAlertCount > 0) {
                         Surface(
                             shape = CircleShape,
-                            color = GlassPalette.AmberWarn.copy(alpha = 0.2f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, GlassPalette.AmberWarn.copy(alpha = 0.6f))
+                            color = SemanticWarning.copy(alpha = 0.2f),
+                            border = androidx.compose.foundation.BorderStroke(1.dp, SemanticWarning.copy(alpha = 0.6f))
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -1165,14 +1334,14 @@ fun RecurringChargesCard(
                                 Icon(
                                     Icons.AutoMirrored.Filled.TrendingUp,
                                     contentDescription = "Alerta de aumento",
-                                    tint = GlassPalette.AmberWarn,
+                                    tint = SemanticWarning,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Text(
                                     "$priceCreepAlertCount alta",
-                                    style = MaterialTheme.typography.labelSmall,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
                                     fontWeight = FontWeight.Bold,
-                                    color = GlassPalette.AmberWarn
+                                    color = SemanticWarning
                                 )
                             }
                         }
@@ -1181,7 +1350,7 @@ fun RecurringChargesCard(
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (isExpanded) "Recolher" else "Expandir",
-                        tint = GlassPalette.TextSecondary
+                        tint = TextSecondary
                     )
                 }
             }
@@ -1191,30 +1360,22 @@ fun RecurringChargesCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Bottom
             ) {
-                Column {
-                    Text(
-                        "Comprometimento Mensal",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = GlassPalette.TextSecondary
-                    )
-                    Text(
-                        ReportEngine.formatCurrency(totalMonthlyRecurring),
-                        style = MaterialTheme.typography.headlineSmall,
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    OverlineText("Comprometimento Mensal")
+                    CurrencyText(
+                        amountCents = totalMonthlyRecurring,
+                        fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = GlassPalette.TextPrimary
+                        color = TextPrimary
                     )
                 }
-                Column(horizontalAlignment = Alignment.End) {
-                    Text(
-                        "Impacto no Limite",
-                        style = MaterialTheme.typography.labelSmall,
-                        color = GlassPalette.TextSecondary
-                    )
+                Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    OverlineText("Impacto no Limite")
                     Text(
                         String.format(java.util.Locale.US, "%.1f%%", limitImpactPercent),
-                        style = MaterialTheme.typography.titleMedium,
+                        style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
                         fontWeight = FontWeight.Bold,
-                        color = if (limitImpactPercent > 30.0) GlassPalette.AmberWarn else GlassPalette.CyanGlow
+                        color = if (limitImpactPercent > 30.0) SemanticWarning else PrimaryAccent
                     )
                 }
             }
@@ -1230,7 +1391,7 @@ fun RecurringChargesCard(
                         Text(
                             "Nenhuma assinatura detectada ainda. Compras recorrentes a cada ~30 dias serão identificadas automaticamente.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = GlassPalette.TextSecondary
+                            color = TextSecondary
                         )
                     } else {
                         recurringCharges.forEach { charge ->
@@ -1255,20 +1416,20 @@ fun RecurringChargesCard(
                                             charge.merchant,
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = if (charge.isActive) GlassPalette.TextPrimary else GlassPalette.TextSecondary.copy(alpha = 0.6f)
+                                            color = if (charge.isActive) TextPrimary else TextSecondary.copy(alpha = 0.6f)
                                         )
                                         if (hasCreep && charge.isActive) {
                                             Surface(
                                                 shape = CircleShape,
-                                                color = GlassPalette.CoralDanger.copy(alpha = 0.2f),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, GlassPalette.CoralDanger.copy(alpha = 0.5f))
+                                                color = SemanticDanger.copy(alpha = 0.2f),
+                                                border = androidx.compose.foundation.BorderStroke(1.dp, SemanticDanger.copy(alpha = 0.5f))
                                             ) {
                                                 Text(
                                                     "+${ReportEngine.formatCurrency(delta)}",
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
-                                                    style = MaterialTheme.typography.labelSmall,
+                                                    style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
                                                     fontWeight = FontWeight.Bold,
-                                                    color = GlassPalette.CoralDanger
+                                                    color = SemanticDanger
                                                 )
                                             }
                                         }
@@ -1276,7 +1437,7 @@ fun RecurringChargesCard(
                                     Text(
                                         "Ciclo ~${charge.billingCycleDays} dias • ${if (charge.isActive) "Ativa" else "Pausada"}",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = GlassPalette.TextSecondary
+                                        color = TextSecondary
                                     )
                                 }
 
@@ -1284,19 +1445,19 @@ fun RecurringChargesCard(
                                     verticalAlignment = Alignment.CenterVertically,
                                     horizontalArrangement = Arrangement.spacedBy(10.dp)
                                 ) {
-                                    Text(
-                                        ReportEngine.formatCurrency(charge.lastAmount),
-                                        style = MaterialTheme.typography.bodyMedium,
+                                    CurrencyText(
+                                        amountCents = charge.lastAmount,
+                                        fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (charge.isActive) GlassPalette.CyanGlow else GlassPalette.TextSecondary.copy(alpha = 0.5f)
+                                        color = if (charge.isActive) PrimaryAccent else TextSecondary.copy(alpha = 0.5f)
                                     )
                                     Switch(
                                         checked = charge.isActive,
                                         onCheckedChange = { active -> onToggleActive(charge.id, active) },
                                         colors = SwitchDefaults.colors(
-                                            checkedThumbColor = GlassPalette.CyanGlow,
-                                            checkedTrackColor = GlassPalette.IndigoGlow.copy(alpha = 0.5f),
-                                            uncheckedThumbColor = GlassPalette.TextSecondary,
+                                            checkedThumbColor = PrimaryAccent,
+                                            checkedTrackColor = SecondaryAccent.copy(alpha = 0.5f),
+                                            uncheckedThumbColor = TextSecondary,
                                             uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
                                         )
                                     )

@@ -21,53 +21,76 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 
 object GlassPalette {
-    val ObsidianBg = Color(0xFF070A12)
-    val DeepSlateBg = Color(0xFF0D1322)
-    val CyanGlow = Color(0xFF38BDF8)
-    val IndigoGlow = Color(0xFF6366F1)
-    val EmeraldAccent = Color(0xFF34D399)
-    val CoralDanger = Color(0xFFFB7185)
-    val AmberWarn = Color(0xFFFBBF24)
-    val TextPrimary = Color(0xFFF8FAFC)
-    val TextSecondary = Color(0xFF94A3B8)
+    val ObsidianBg: Color get() = com.cardcontrol.app.ui.theme.AppBackground
+    val DeepSlateBg: Color get() = com.cardcontrol.app.ui.theme.AppBackgroundTop
+    val CyanGlow: Color get() = com.cardcontrol.app.ui.theme.PrimaryAccent
+    val IndigoGlow: Color get() = com.cardcontrol.app.ui.theme.SecondaryAccent
+    val EmeraldAccent: Color get() = com.cardcontrol.app.ui.theme.SemanticSuccess
+    val CoralDanger: Color get() = com.cardcontrol.app.ui.theme.SemanticDanger
+    val AmberWarn: Color get() = com.cardcontrol.app.ui.theme.SemanticWarning
+    val TextPrimary: Color get() = com.cardcontrol.app.ui.theme.TextPrimary
+    val TextSecondary: Color get() = com.cardcontrol.app.ui.theme.TextSecondary
+    val TextMuted: Color get() = com.cardcontrol.app.ui.theme.TextMuted
+
+    val AppBackground: Color get() = com.cardcontrol.app.ui.theme.AppBackground
+    val GlassSurface: Color get() = com.cardcontrol.app.ui.theme.GlassSurface
+    val PrimaryAccent: Color get() = com.cardcontrol.app.ui.theme.PrimaryAccent
+    val SecondaryAccent: Color get() = com.cardcontrol.app.ui.theme.SecondaryAccent
+    val SemanticSuccess: Color get() = com.cardcontrol.app.ui.theme.SemanticSuccess
+    val SemanticWarning: Color get() = com.cardcontrol.app.ui.theme.SemanticWarning
+    val SemanticDanger: Color get() = com.cardcontrol.app.ui.theme.SemanticDanger
+
     val SurfaceTintTop = Color(0x28FFFFFF)
     val SurfaceTintBottom = Color(0x0DFFFFFF)
     val SpecularHighlight = Color(0x66FFFFFF)
     val SpecularShadow = Color(0x14FFFFFF)
 }
 
-fun Modifier.liquidGlassSurface(
-    cornerRadius: Dp = 22.dp,
-    accentTint: Color = GlassPalette.CyanGlow
+/**
+ * Modifier oficial Liquid Glass Card.
+ * Aplica cantos arredondados, superfície translúcida #0F172A (alpha 65%)
+ * e reflexo de luz direcional suave no topo esquerdo do vidro.
+ */
+fun Modifier.liquidGlassCard(
+    cornerRadius: Dp = 20.dp,
+    accentTint: Color? = null
 ): Modifier {
     val shape = RoundedCornerShape(cornerRadius)
+    val borderColors = if (accentTint != null) {
+        listOf(
+            Color.White.copy(alpha = 0.22f),
+            accentTint.copy(alpha = 0.20f),
+            Color.White.copy(alpha = 0.05f),
+            Color.Transparent
+        )
+    } else {
+        listOf(
+            Color.White.copy(alpha = 0.22f),
+            Color.White.copy(alpha = 0.05f),
+            Color.Transparent
+        )
+    }
     return this
         .clip(shape)
-        .background(
-            brush = Brush.linearGradient(
-                colors = listOf(
-                    GlassPalette.SurfaceTintTop,
-                    accentTint.copy(alpha = 0.06f),
-                    GlassPalette.SurfaceTintBottom
-                ),
-                start = Offset(0f, 0f),
-                end = Offset(900f, 900f)
-            )
-        )
+        .background(Color(0xFF0F172A).copy(alpha = 0.65f))
         .border(
             width = 1.dp,
             brush = Brush.linearGradient(
-                colors = listOf(
-                    GlassPalette.SpecularHighlight,
-                    accentTint.copy(alpha = 0.28f),
-                    GlassPalette.SpecularShadow
-                ),
+                colors = borderColors,
                 start = Offset(0f, 0f),
-                end = Offset(600f, 600f)
+                end = Offset(450f, 450f)
             ),
             shape = shape
         )
 }
+
+/**
+ * Retrocompatibilidade com chamadas existentes de liquidGlassSurface.
+ */
+fun Modifier.liquidGlassSurface(
+    cornerRadius: Dp = 20.dp,
+    accentTint: Color = GlassPalette.CyanGlow
+): Modifier = this.liquidGlassCard(cornerRadius = cornerRadius, accentTint = accentTint)
 
 @Composable
 fun LiquidAmbientBackground(
@@ -77,53 +100,68 @@ fun LiquidAmbientBackground(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Brush.verticalGradient(listOf(GlassPalette.ObsidianBg, GlassPalette.DeepSlateBg)))
+            .background(
+                Brush.verticalGradient(
+                    colors = listOf(AppBackgroundTop.copy(alpha = 0.90f), AppBackground)
+                )
+            )
     ) {
         Canvas(modifier = Modifier.fillMaxSize()) {
+            // Gradiente radial sutil no topo simulando iluminação ambiente de estúdio
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(GlassPalette.CyanGlow.copy(alpha = 0.16f), Color.Transparent),
-                    center = Offset(size.width * 0.15f, size.height * 0.12f),
-                    radius = size.minDimension * 0.65f
+                    colors = listOf(PrimaryAccent.copy(alpha = 0.12f), Color.Transparent),
+                    center = Offset(size.width * 0.20f, size.height * 0.08f),
+                    radius = size.minDimension * 0.70f
                 ),
-                center = Offset(size.width * 0.15f, size.height * 0.12f),
-                radius = size.minDimension * 0.65f
+                center = Offset(size.width * 0.20f, size.height * 0.08f),
+                radius = size.minDimension * 0.70f
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(GlassPalette.IndigoGlow.copy(alpha = 0.14f), Color.Transparent),
-                    center = Offset(size.width * 0.88f, size.height * 0.48f),
-                    radius = size.minDimension * 0.70f
+                    colors = listOf(SecondaryAccent.copy(alpha = 0.10f), Color.Transparent),
+                    center = Offset(size.width * 0.85f, size.height * 0.40f),
+                    radius = size.minDimension * 0.65f
                 ),
-                center = Offset(size.width * 0.88f, size.height * 0.48f),
-                radius = size.minDimension * 0.70f
+                center = Offset(size.width * 0.85f, size.height * 0.40f),
+                radius = size.minDimension * 0.65f
             )
         }
         content()
     }
 }
 
+/**
+ * Barra de progresso com design Liquid Glass:
+ * Altura de 6.dp, bordas arredondadas e trilha em Color.White (alpha = 0.08f).
+ */
 @Composable
 fun LiquidGlassBar(
     progress: Float,
     modifier: Modifier = Modifier,
-    accentColor: Color = GlassPalette.CyanGlow
+    accentColor: Color = PrimaryAccent
 ) {
     val clamped = progress.coerceIn(0f, 1f)
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .height(8.dp)
+            .height(6.dp)
             .clip(CircleShape)
             .background(Color.White.copy(alpha = 0.08f))
     ) {
-        Box(
-            modifier = Modifier
-                .fillMaxWidth(clamped)
-                .fillMaxHeight()
-                .clip(CircleShape)
-                .background(Brush.horizontalGradient(listOf(accentColor.copy(alpha = 0.75f), accentColor)))
-        )
+        if (clamped > 0f) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth(clamped)
+                    .fillMaxHeight()
+                    .clip(CircleShape)
+                    .background(
+                        Brush.horizontalGradient(
+                            listOf(accentColor.copy(alpha = 0.75f), accentColor)
+                        )
+                    )
+            )
+        }
     }
 }
 
@@ -139,14 +177,18 @@ fun <T> LiquidPillSelector(
     ) {
         options.forEach { (id, label) ->
             val isSelected = id == selectedId
-            val accent = if (isSelected) GlassPalette.CyanGlow else GlassPalette.TextSecondary
+            val accent = if (isSelected) PrimaryAccent else TextSecondary
             Box(
                 modifier = Modifier
                     .clip(CircleShape)
-                    .background(if (isSelected) GlassPalette.CyanGlow.copy(alpha = 0.22f) else Color.White.copy(alpha = 0.05f))
+                    .background(
+                        if (isSelected) PrimaryAccent.copy(alpha = 0.18f)
+                        else Color.White.copy(alpha = 0.05f)
+                    )
                     .border(
                         width = 1.dp,
-                        color = if (isSelected) GlassPalette.CyanGlow else Color.White.copy(alpha = 0.12f),
+                        color = if (isSelected) PrimaryAccent.copy(alpha = 0.60f)
+                        else Color.White.copy(alpha = 0.10f),
                         shape = CircleShape
                     )
                     .clickable { onSelect(id) }
@@ -155,9 +197,9 @@ fun <T> LiquidPillSelector(
             ) {
                 Text(
                     text = label,
-                    color = if (isSelected) GlassPalette.TextPrimary else accent,
+                    color = if (isSelected) TextPrimary else accent,
                     style = MaterialTheme.typography.labelMedium,
-                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )
             }
         }
