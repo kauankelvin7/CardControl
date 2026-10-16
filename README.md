@@ -5,9 +5,6 @@
   Totalmente offline, com divisão exata de centavos e cofre criptografado no dispositivo.
 </p>
 
-> [!IMPORTANT]
-> **CardControl v2.2.0 — Versão Estável e Auditada (100% Offline-First)**
-> A versão legada v2.1.0 foi revogada e descontinuada em razão do incidente de exposição de chave histórica. A nova versão (**v2.2.0**) consolida a migração canônica para centavos inteiros (`Long`) no Room SQLite v3, concorrência estática com Mutex atômico, motor de deduplicação temporal SHA-256, exclusão rigorosa de material sensível e automação de release no GitHub Actions com chaves isoladas. Consulte [SECURITY.md](SECURITY.md) e [RELEASE_SIGNING.md](docs/RELEASE_SIGNING.md) para a política de integridade.
 
 <p align="center">
   <img alt="Platform" src="https://img.shields.io/badge/Platform-Android%208.0%2B%20(API%2026%2B)-3DDC84?logo=android&logoColor=white">
