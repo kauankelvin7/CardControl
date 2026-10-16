@@ -14,8 +14,8 @@ import java.util.concurrent.TimeUnit
 object SubscriptionTracker {
 
     /** Janela em dias para considerar uma cobrança consecutiva como assinatura mensal. */
-    const val MIN_CYCLE_DAYS = 27L
-    const val MAX_CYCLE_DAYS = 33L
+    const val MIN_CYCLE_DAYS = 28L
+    const val MAX_CYCLE_DAYS = 32L
 
     data class DetectionResult(
         val merchant: String,
