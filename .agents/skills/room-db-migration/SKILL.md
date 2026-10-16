@@ -14,7 +14,7 @@ This skill guides safely evolving the private local SQLite database `card_contro
 
 1. **100% Offline-First:** Zero network calls or cloud synchronizers. The database lives entirely within the app's sandboxed private storage.
 2. **Foreign Key Indices:** Every `ForeignKey` column (`defaultHolderId`, `cardId`, `holderId`, `transactionId`) **must** have an `@Index` declaration in `@Entity(indices = [...])` to prevent full table scans and Room KSP compile warnings.
-3. **Monetary Precision:** Store amounts as `Double` representing BRL currency, calculated and split through `BigDecimal` in `CardRepository.kt`.
+3. **Monetary Precision:** Store monetary values as integer cents (`Long`); never introduce `Double` currency storage or unverified conversion rules.
 
 ---
 
@@ -44,7 +44,13 @@ File: [AppDatabase.kt](../../../app/src/main/java/com/cardcontrol/app/data/local
   ```
   Add to builder: `.addMigrations(MIGRATION_2_3)` before `.fallbackToDestructiveMigration()`.
 
-### Step 4: Verify KSP and Build
+### Step 4: Test the Migration Against SQLite
+- Never rely solely on a mocked `SupportSQLiteDatabase`, a proxy that records SQL strings, or assertions that only inspect the migration source.
+- Execute the migration against a real SQLite test database. Verify the resulting columns, tables, indices, foreign keys, defaults, and existing row preservation.
+- Where the test setup supports it, open the migrated fixture through the target Room version so Room's schema validation also runs.
+- A migration test that only proves the migration method attempted to execute SQL is not sufficient.
+
+### Step 5: Verify KSP and Build
 Run the validation gate to trigger KSP code generation and verify that all schemas and DAO queries compile:
 ```powershell
 powershell -ExecutionPolicy Bypass -File .agents/skills/cardcontrol-verify/scripts/verify.ps1 -TestsOnly
