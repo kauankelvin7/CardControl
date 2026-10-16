@@ -123,6 +123,72 @@ class SubscriptionTrackerTest {
         assertTrue(sub.isUserConfirmed)
     }
 
+
+    @Test
+    fun `ignora deteccao quando ultima cobranca irregular invalida cadencia anterior`() {
+        val now = System.currentTimeMillis()
+        fun transaction(id: Long, daysAgo: Long) = TransactionEntity(
+            id = id,
+            cardId = 10L,
+            holderId = 100L,
+            merchant = "NETFLIX.COM",
+            totalAmount = 5590L,
+            purchaseTimestamp = now - TimeUnit.DAYS.toMillis(daysAgo)
+        )
+
+        // Two historical 30-day intervals followed by a charge only five days later.
+        val transactions = listOf(
+            transaction(1L, 65L),
+            transaction(2L, 35L),
+            transaction(3L, 5L),
+            transaction(4L, 0L)
+        )
+
+        assertTrue(
+            "A cobranca mais recente irregular deve impedir a deteccao automatica",
+            SubscriptionTracker.detectSubscriptions(transactions).isEmpty()
+        )
+    }
+
+    @Test
+    fun `nao aceita parcelamento confirmado manualmente como recorrencia`() {
+        val tx = TransactionEntity(
+            id = 1L,
+            cardId = 10L,
+            holderId = 100L,
+            merchant = "ACADEMIA",
+            totalAmount = 11990L,
+            installmentsCount = 12,
+            purchaseTimestamp = System.currentTimeMillis(),
+            isRecurring = true
+        )
+
+        val detected = SubscriptionTracker.detectSubscriptions(listOf(tx))
+        assertTrue("Compras parceladas nao podem ser contabilizadas como assinatura", detected.isEmpty())
+    }
+
+
+    @Test
+    fun `aplica limites de ciclo documentados entre 28 e 32 dias`() {
+        val now = System.currentTimeMillis()
+        fun detectedAt(days: Long): Boolean {
+            val first = TransactionEntity(
+                id = 1L, cardId = 10L, holderId = 100L, merchant = "SERVICE",
+                totalAmount = 2000L, purchaseTimestamp = now - TimeUnit.DAYS.toMillis(days)
+            )
+            val latest = TransactionEntity(
+                id = 2L, cardId = 10L, holderId = 100L, merchant = "SERVICE",
+                totalAmount = 2000L, purchaseTimestamp = now
+            )
+            return SubscriptionTracker.detectSubscriptions(listOf(first, latest)).isNotEmpty()
+        }
+
+        assertTrue(detectedAt(28L))
+        assertTrue(detectedAt(32L))
+        assertFalse(detectedAt(27L))
+        assertFalse(detectedAt(33L))
+    }
+
     @Test
     fun `calcula custos fixos mensais comprometidos considerando apenas ativas`() {
         val list = listOf(
@@ -136,9 +202,10 @@ class SubscriptionTrackerTest {
     }
 
     @Test
-    fun `calcula impacto no limite com precisao e trata limites zerados`() {
+    fun `calcula impacto no limite e nao oculta quando ultrapassa 100 por cento`() {
         assertEquals(10.0, SubscriptionTracker.calculateLimitImpactPercent(10000L, 100000L), 0.001)
         assertEquals(25.5, SubscriptionTracker.calculateLimitImpactPercent(25500L, 100000L), 0.001)
+        assertEquals(120.0, SubscriptionTracker.calculateLimitImpactPercent(120000L, 100000L), 0.001)
         assertEquals(0.0, SubscriptionTracker.calculateLimitImpactPercent(5000L, 0L), 0.001)
         assertEquals(0.0, SubscriptionTracker.calculateLimitImpactPercent(5000L, -100L), 0.001)
     }

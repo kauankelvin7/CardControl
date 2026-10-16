@@ -8,7 +8,7 @@ description: >-
 
 This skill guides the execution of the mandatory acceptance gates defined in [AGENTS.md](../../../AGENTS.md).
 
-No feature, bug fix, or refactor in CardControl can be considered complete without real execution evidence from these gates.
+No feature, bug fix, or refactor in CardControl can be considered complete without real execution evidence from these gates. The GitHub Actions CI must also pass `python3 scripts/check_review_contract.py`, which keeps mandatory review rules and regression cases wired into the pipeline.
 
 ---
 
@@ -61,5 +61,7 @@ elseif (Test-Path "C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot") { $env:J
 ## 3. Critical Rules and Constraints
 
 - **Never Alucinate:** Distinguish clearly between code inspected, hypothesis, executed test, and observed behavior. Never report tests passing without actual terminal execution.
-- **Release Signing Ban:** Do **NOT** run `assembleRelease` until the rotated signing key and migration strategy are officially established (as recorded in `.agent/CARDCONTROL_STATE.md`).
+- **Release Signing:** Do not assume a release is publishable because a build passed. Verify the recorded signing-key strategy in `.agents/CARDCONTROL_STATE.md`, the signed artifact fingerprint, checksum, release draft/publication state, and exact source SHA.
 - **Offline Invariant:** Verification must succeed in an offline environment without external cloud dependencies.
+- **Evidence:** A skipped or missing check is not a pass. Report the exact commands, commit SHA and outcomes; do not declare an artifact/release validated unless it was actually inspected.
+- **Regression Review:** Apply `.agents/skills/regression-review/SKILL.md` and ensure the new negative/regression tests fail against the reported defect and pass against the fix.

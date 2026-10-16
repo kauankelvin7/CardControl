@@ -41,10 +41,13 @@ O projeto CardControl adota o **Antigravity** como agente principal e orquestrad
   - Aplicar o princípio de linguagem natural e clara do **Humanize** e o minimalismo/YAGNI do **Ponytail**.
 
 ### E. Agente 4 — QA e Revisor Independente (`.agents/agents/qa_revisor.md`)
-- **Papel:** Validador adversarial de qualidade e aprovação.
+- **Papel:** Validador adversarial de qualidade e aprovação, separado de quem implementou.
 - **Responsabilidades:**
+  - Aplicar obrigatoriamente a skill `.agents/skills/regression-review/SKILL.md` em toda mudança de domínio, persistência, finanças, migração, UI ou CI/CD.
   - Executar e auditar testes automatizados (`testDebugUnitTest`, `lintDebug`, `assembleDebug` e `test_bundle_canary.py`).
-  - Inspecionar o diff completo (`git diff --stat origin/main`) em busca de regressões ou efeitos colaterais.
+  - Seguir os dados de ponta a ponta (UI -> ViewModel -> repository -> DAO/Room -> leitura), conferir normalização/deduplicação e confrontar o que a UI permite com o que o domínio aceita.
+  - Exigir testes negativos e de regressão que reproduzam a causa raiz; migrações não são aprovadas com proxies/mocks que só registram SQL.
+  - Inspecionar o diff completo (`git diff --stat origin/main`), workflows e estado do SHA testado; checks ausentes ou skipped não contam como aprovados.
   - Emitir parecer fundamentado: **Aprovado**, **Aprovado com Ressalvas** ou **Rejeitado/Bloqueado**.
 
 ---
@@ -57,7 +60,7 @@ Toda alteração técnica no CardControl deve obedecer estritamente à sequênci
 2. **Definição de Escopo:** Elaborar plano detalhado com critérios de aceitação e riscos mapeados.
 3. **Delegação da Implementação:** Acionar o subagente `implementador` com escopo delimitado.
 4. **Inspeção Intermediária:** O orquestrador examina o diff gerado e os testes executados.
-5. **Delegação da Auditoria:** Acionar o subagente `auditor` em contexto independente.
+5. **Delegação da Auditoria:** Acionar o subagente `auditor` em contexto independente e aplicar a skill obrigatória `.agents/skills/regression-review/SKILL.md`.
 6. **Remediação de Achados:** Corrigir os problemas relevantes apontados e solicitar revalidação.
 7. **Validações Finais:** Executar a suíte de testes e compilação do Gradle no estado final consolidado.
 8. **Rastreabilidade de SHA:** Confirmar que o SHA / estado validado corresponde ao código revisado.
@@ -83,7 +86,7 @@ Se houver divergência técnica, prevalece o código verificado no repositório 
 ## 4. Estado Atual do Sistema e Contratos
 
 - **Arquitetura:** Aplicativo Android nativo (Kotlin 1.9.24 + Jetpack Compose + Room 2.6.1 SQLite + Android Keystore), 100% offline-first.
-- **Banco de Dados Room v4:** Banco SQLite privado `card_control_offline.db`. Todas as grandezas monetárias (`subLimit`, `totalLimit`, `totalAmount`, `amount`, `amountPaid`) utilizam representação inteira canônica em centavos (`Long`). Campo explícito `bank` em `credit_cards` desacopla a identificação bancária do apelido do cartão. Esquemas Room exportados e versionados em `app/schemas/` (12 índices no schema v4).
+- **Banco de Dados Room v5:** Banco SQLite privado `card_control_offline.db`, com migrações registradas de forma incremental até `MIGRATION_4_5` e esquema exportado em `app/schemas/`. Todas as grandezas monetárias (`subLimit`, `totalLimit`, `totalAmount`, `amount`, `amountPaid`) utilizam representação inteira canônica em centavos (`Long`). Campo explícito `bank` em `credit_cards` desacopla a identificação bancária do apelido do cartão.
 - **Captura em Tempo Real:** `BankNotificationListener` monitorando notificações push locais dos 9 maiores bancos do Brasil. Deduplicação inteligente via hash SHA-256 e janela de 120s. Desambiguação segura via `SupportedBank`.
 - **Concorrência Segura:** `CardRepository.expenseMutex` compartilhado em `companion object` garantindo inserção atômica e proteção contra duplicatas entre múltiplas instâncias na mesma JVM.
 - **Segurança de Entrada:** Sanitização contra CRLF injection (`sanitizeHeaderField`), bloqueio de Path Traversal (`sanitizeFileNameSegment`), e limite de payload contra ReDoS (`boundNotificationInput`).
@@ -104,7 +107,7 @@ Se houver divergência técnica, prevalece o código verificado no repositório 
    - Compras realizadas no dia de fechamento (`closingDay`) ou após avançam para a fatura do mês seguinte.
    - Viradas de ano civil incrementam o ano e resetam o mês para 1.
 4. **Compatibilidade Room:**
-   - Migrações seguras preservando foreign keys e índices SQLite (11 índices no schema v3).
+   - Migrações sequenciais e não destrutivas, preservando dados, foreign keys, índices e defaults do schema; validar a execução em SQLite real, não apenas inspecionar strings SQL.
 
 ---
 
@@ -148,6 +151,7 @@ O repositório possui Agent Skills modulares em `.agents/skills/` para padroniza
 | **`room-db-migration`** | [.agents/skills/room-db-migration/SKILL.md](file:///c:/Users/Kauan/Desktop/CardControl/.agents/skills/room-db-migration/SKILL.md) | Evolução segura do banco offline SQLite (`card_control_offline.db`), migração v2->v3->v4, campo explícito `bank`, índices e schemas KSP. |
 | **`agent-state-sync`** | [.agents/skills/agent-state-sync/SKILL.md](file:///c:/Users/Kauan/Desktop/CardControl/.agents/skills/agent-state-sync/SKILL.md) | Sincronização e auditoria dos artefatos de governança (`.agents/CARDCONTROL_STATE.md`, `.agents/CARDCONTROL_TASKS.yaml`, `.agents/CARDCONTROL_EXECPLAN.md`). |
 | **`financial-math-audit`** | [.agents/skills/financial-math-audit/SKILL.md](file:///c:/Users/Kauan/Desktop/CardControl/.agents/skills/financial-math-audit/SKILL.md) | Regras matemáticas com representação canônica em centavos (`Long`), rateio exato de parcelas e virada de ano no fechamento. |
+| **`regression-review`** | [.agents/skills/regression-review/SKILL.md](.agents/skills/regression-review/SKILL.md) | Revisão adversarial obrigatória da lógica de negócio, UI/domínio/persistência, duplicidade, migrações SQLite reais e cobertura CI/CD. |
 
 ---
 

@@ -245,35 +245,78 @@ class CardRepository(private val dao: AppDao) {
     suspend fun syncRecurringCharges() {
         val txs = dao.getAllTransactionsSnapshot()
         val detected = com.cardcontrol.app.util.SubscriptionTracker.detectSubscriptions(txs)
+        val existingCharges = dao.getAllRecurringChargesSnapshot().toMutableList()
+
+        // Repair duplicates created by earlier versions before syncing new detections.
+        val duplicateGroups = existingCharges.groupBy {
+            Pair(
+                it.cardId,
+                com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(it.merchant)
+            )
+        }.values.filter { it.size > 1 }
+
+        for (matches in duplicateGroups) {
+            val canonical = matches.sortedWith(
+                compareByDescending<RecurringChargeEntity> { it.isUserConfirmed }
+                    .thenByDescending { it.isActive }
+                    .thenBy { it.id }
+            ).first()
+            val latest = matches.maxBy { it.lastChargedTimestamp }
+            val consolidated = canonical.copy(
+                holderId = latest.holderId,
+                expectedAmount = latest.expectedAmount,
+                lastAmount = latest.lastAmount,
+                previousAmount = latest.previousAmount,
+                billingCycleDays = latest.billingCycleDays,
+                lastChargedTimestamp = latest.lastChargedTimestamp,
+                isActive = matches.any { it.isActive },
+                isUserConfirmed = matches.any { it.isUserConfirmed }
+            )
+            dao.insertRecurringCharge(consolidated)
+            matches.filter { it.id != canonical.id }.forEach { dao.deleteRecurringCharge(it.id) }
+            existingCharges.removeAll { existing ->
+                existing.cardId == canonical.cardId &&
+                    com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(existing.merchant) ==
+                    com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(canonical.merchant)
+            }
+            existingCharges.add(consolidated)
+        }
+
         for (item in detected) {
-            val existing = dao.getRecurringChargeByMerchantAndCard(item.merchant, item.cardId)
+            val normalizedMerchant = com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(item.merchant)
+            val existingIndex = existingCharges.indexOfFirst {
+                it.cardId == item.cardId &&
+                    com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(it.merchant) == normalizedMerchant
+            }
+            val existing = existingCharges.getOrNull(existingIndex)
             if (existing != null) {
-                dao.insertRecurringCharge(
-                    existing.copy(
-                        holderId = item.holderId,
-                        expectedAmount = item.expectedAmount,
-                        lastAmount = item.lastAmount,
-                        previousAmount = item.previousAmount,
-                        billingCycleDays = item.billingCycleDays,
-                        lastChargedTimestamp = item.lastChargedTimestamp,
-                        isUserConfirmed = existing.isUserConfirmed || item.isUserConfirmed
-                    )
+                // Preserve the existing display label and ID while matching on canonical identity.
+                val updated = existing.copy(
+                    holderId = item.holderId,
+                    expectedAmount = item.expectedAmount,
+                    lastAmount = item.lastAmount,
+                    previousAmount = item.previousAmount,
+                    billingCycleDays = item.billingCycleDays,
+                    lastChargedTimestamp = item.lastChargedTimestamp,
+                    isUserConfirmed = existing.isUserConfirmed || item.isUserConfirmed
                 )
+                dao.insertRecurringCharge(updated)
+                existingCharges[existingIndex] = updated
             } else {
-                dao.insertRecurringCharge(
-                    RecurringChargeEntity(
-                        cardId = item.cardId,
-                        holderId = item.holderId,
-                        merchant = item.merchant,
-                        expectedAmount = item.expectedAmount,
-                        lastAmount = item.lastAmount,
-                        previousAmount = item.previousAmount,
-                        billingCycleDays = item.billingCycleDays,
-                        lastChargedTimestamp = item.lastChargedTimestamp,
-                        isActive = true,
-                        isUserConfirmed = item.isUserConfirmed
-                    )
+                val newCharge = RecurringChargeEntity(
+                    cardId = item.cardId,
+                    holderId = item.holderId,
+                    merchant = item.merchant,
+                    expectedAmount = item.expectedAmount,
+                    lastAmount = item.lastAmount,
+                    previousAmount = item.previousAmount,
+                    billingCycleDays = item.billingCycleDays,
+                    lastChargedTimestamp = item.lastChargedTimestamp,
+                    isActive = true,
+                    isUserConfirmed = item.isUserConfirmed
                 )
+                val insertedId = dao.insertRecurringCharge(newCharge)
+                existingCharges.add(newCharge.copy(id = insertedId))
             }
         }
     }
@@ -282,9 +325,10 @@ class CardRepository(private val dao: AppDao) {
         dao.setRecurringChargeActive(id, isActive)
     }
 
-    suspend fun markTransactionRecurring(transactionId: Long, isRecurring: Boolean) {
-        dao.setTransactionRecurring(transactionId, isRecurring)
-        syncRecurringCharges()
+    suspend fun markTransactionRecurring(transactionId: Long, isRecurring: Boolean): Boolean {
+        val updated = dao.setTransactionRecurring(transactionId, isRecurring) > 0
+        if (updated) syncRecurringCharges()
+        return updated
     }
 
     suspend fun registerPayment(

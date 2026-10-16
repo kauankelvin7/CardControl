@@ -282,6 +282,7 @@ $RequiredSkills = @(
     'room-db-migration',
     'bank-notification-parser',
     'financial-math-audit',
+    'regression-review',
     'ponytail',
     'context-mode',
     'graphify',
