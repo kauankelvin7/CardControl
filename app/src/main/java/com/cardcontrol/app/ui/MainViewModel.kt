@@ -215,6 +215,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch { repository.setRecurringChargeActive(id, isActive) }
     }
     fun markTransactionRecurring(transactionId: Long, isRecurring: Boolean) {
-        viewModelScope.launch { repository.markTransactionRecurring(transactionId, isRecurring) }
+        viewModelScope.launch {
+            val updated = repository.markTransactionRecurring(transactionId, isRecurring)
+            _uiMessages.emit(
+                when {
+                    updated && isRecurring -> "Compra marcada como recorrente."
+                    updated -> "Marca de recorrência removida."
+                    else -> "Só compras sem parcelamento podem ser marcadas como recorrentes."
+                }
+            )
+        }
     }
 }
