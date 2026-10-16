@@ -1,12 +1,14 @@
 # CardControl — Ponto de Retomada e Estado Canônico
 
 - Data da Última Auditoria: 16 de Outubro de 2026
-- Branch ativa: `feat/liquid-glass-ui-ux` (Baseada em `main` v2.3.0 / `86ca7f7`)
-- HEAD SHA: `1c9256f`
-- Commit base: `86ca7f7`
-- Versão Atual: `v2.3.0` (versionCode 5)
+- Branch ativa: `main` (Sincronizada com `origin/main` no commit `9290989`)
+- HEAD SHA: `9290989`
+- Versão Atual: `v2.3.0` (versionCode 5) — Liquid Glass Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
-- Feature Adicionada: UI/UX & Design System Overhaul — Liquid Glass Edition (Color tokens, Tabular Figures `tnum`, CurrencyText, OverlineText, TopBar contextual, BottomBar estilizada, FAB unificado e resolução de bugs de corte de inputs)
+- Release no GitHub: Atualizada em `v2.3.0` com novo APK `CardControl-v2.3.0.apk` assinado e verificado.
+  - APK SHA-256: `a3cadd0bca5005d91f31dbe85f7d24171819f5052756a77f6679c8233a6503e5`
+  - Assinatura: Esquema v2 com certificado oficial `A5:24:7A:59:4D:30:C8:FA:F4:6C:8B:30:06:AB:09:27:35:CC:DE:FD:67:81:1B:41:96:5E:01:87:28:64:93:28`
+- Feature Integrada: UI/UX & Design System Overhaul — Liquid Glass Edition (Color tokens, Tabular Figures `tnum`, CurrencyText, OverlineText, TopBar contextual, BottomBar estilizada, FAB unificado e resolução de bugs de corte de inputs)
 
 ---
 
@@ -25,14 +27,11 @@
    - Vinculação de pessoa/titular padrão e seletor visual de bancos no modal.
    - Suíte consolidada de 82 testes unitários aprovados com 100% de sucesso.
 
-3. **Assinatura Persistente, Fail-Closed e Draft Release (`release.yml`):**
-   - Removido o fallback de geração de chave efêmera no runner.
-   - A keystore local persistente (`%LOCALAPPDATA%\CardControlSigning\cardcontrol-release.jks`) e suas credenciais foram validadas.
-   - Certificado SHA-256 verificado diretamente via `keytool` e `apksigner`: `A5:24:7A:59:4D:30:C8:FA:F4:6C:8B:30:06:AB:09:27:35:CC:DE:FD:67:81:1B:41:96:5E:01:87:28:64:93:28`.
-   - Os 4 Repository Secrets (`CARDCONTROL_KEYSTORE_BASE64`, `CARDCONTROL_KEYSTORE_PASSWORD`, `CARDCONTROL_KEY_ALIAS`, `CARDCONTROL_KEY_PASSWORD`) foram cadastrados e confirmados via GitHub CLI sem exibição de valores.
-   - As 2 Repository Variables (`CARDCONTROL_CERT_SHA256` e `CARDCONTROL_RELEASE_COMPATIBILITY_APPROVED=true`) foram cadastradas e confirmadas via GitHub CLI.
-   - Workflow `release.yml` executado com êxito no GitHub Actions (Run ID: `38916225434`), gerando e verificando a assinatura do APK contra o fingerprint esperado.
-   - Draft Release `v2.3.0` criada com os anexos `CardControl-v2.3.0.apk` e `SHA256SUMS.txt` preservada para revisão humana sem publicação automática.
+3. **Design System Overhaul e Release v2.3.0 Liquid Glass Edition:**
+   - Overhaul estético padrão fintech premium (Linear / Raycast) com fundo `#060913`, vidro translúcido `#0F172A` (65%) e tipografia tabular com `CurrencyText`.
+   - Compilação e assinatura local com o par de chaves oficial persistente (`A5:24:7A:59:4D:30:C8:FA:F4:6C:8B:30:06:AB:09:27:35:CC:DE:FD:67:81:1B:41:96:5E:01:87:28:64:93:28`).
+   - Release `v2.3.0` no GitHub atualizada com o novo APK `CardControl-v2.3.0.apk` e o novo `SHA256SUMS.txt`.
+   - Branch `main` e tag `v2.3.0` sincronizadas no repositório remoto.
 
 4. **Saneamento e Limpeza Estrita de Binários:**
    - Remoção de binários compilados fora do canal oficial de Releases do GitHub.
