@@ -58,6 +58,10 @@ for marker in [
 repository_tests = read("app/src/test/java/com/cardcontrol/app/CardRepositoryRecurringSyncTest.kt")
 if "variacoes de caixa" not in repository_tests.casefold():
     fail("Repository sync must have a merchant-normalization duplicate regression test")
+if "remove duplicatas ja existentes" not in repository_tests.casefold():
+    fail("Repository sync must test cleanup of previously persisted duplicates")
+if "deleteRecurringCharge" not in read("app/src/main/java/com/cardcontrol/app/data/local/AppDao.kt"):
+    fail("DAO must support deleting duplicate recurring-charge rows")
 
 dao = read("app/src/main/java/com/cardcontrol/app/data/local/AppDao.kt")
 if "(:isRecurring = 0 OR installmentsCount = 1)" not in dao:
