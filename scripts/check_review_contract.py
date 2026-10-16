@@ -50,6 +50,7 @@ for marker in [
     "ultima cobranca irregular",
     "parcelamento confirmado manualmente",
     "ultrapassa 100 por cento",
+    "limites de ciclo documentados entre 28 e 32 dias",
 ]:
     if marker.casefold() not in tracker_tests.casefold():
         fail(f"Missing subscription regression test marker: {marker}")
