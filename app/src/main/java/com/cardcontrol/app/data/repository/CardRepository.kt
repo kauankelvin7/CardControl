@@ -289,9 +289,10 @@ class CardRepository(private val dao: AppDao) {
         dao.setRecurringChargeActive(id, isActive)
     }
 
-    suspend fun markTransactionRecurring(transactionId: Long, isRecurring: Boolean) {
-        dao.setTransactionRecurring(transactionId, isRecurring)
-        syncRecurringCharges()
+    suspend fun markTransactionRecurring(transactionId: Long, isRecurring: Boolean): Boolean {
+        val updated = dao.setTransactionRecurring(transactionId, isRecurring) > 0
+        if (updated) syncRecurringCharges()
+        return updated
     }
 
     suspend fun registerPayment(
