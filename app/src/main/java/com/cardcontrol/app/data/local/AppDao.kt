@@ -97,8 +97,8 @@ interface AppDao {
     @Query("UPDATE recurring_charges SET isActive = :isActive WHERE id = :id")
     suspend fun setRecurringChargeActive(id: Long, isActive: Boolean)
 
-    @Query("UPDATE transactions SET isRecurring = :isRecurring WHERE id = :transactionId")
-    suspend fun setTransactionRecurring(transactionId: Long, isRecurring: Boolean)
+    @Query("UPDATE transactions SET isRecurring = :isRecurring WHERE id = :transactionId AND (:isRecurring = 0 OR installmentsCount = 1)")
+    suspend fun setTransactionRecurring(transactionId: Long, isRecurring: Boolean): Int
 
     @Query("SELECT * FROM transactions WHERE merchant = :merchant ORDER BY purchaseTimestamp ASC")
     suspend fun getTransactionsByMerchant(merchant: String): List<TransactionEntity>
