@@ -54,7 +54,14 @@ fun calculateFirstInstallmentMonth(purchaseDate: LocalDate, closingDay: Int): Lo
 
 ---
 
-## 3. Testing Rules
+## 3. Do Not Hide Financial Overruns
+
+- Never clamp a meaningful financial ratio to a presentation-friendly range if that conceals the real result. For example, recurring cost of R$ 1.200 over a total limit of R$ 1.000 must report 120%, not 100%.
+- Handle a zero or invalid denominator explicitly, and document the chosen result.
+- Keep numeric calculation separate from visual formatting; the UI may style an over-100% result as a warning, but must not change the underlying value.
+- Every changed financial metric needs boundary tests below, at, and above its conventional limits.
+
+## 4. Testing Rules
 
 Always assert both:
 1. Total preservation (`parcels.sum() == totalAmount`).
