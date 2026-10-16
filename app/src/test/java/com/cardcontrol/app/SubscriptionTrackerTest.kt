@@ -123,6 +123,52 @@ class SubscriptionTrackerTest {
         assertTrue(sub.isUserConfirmed)
     }
 
+
+    @Test
+    fun `ignora deteccao quando ultima cobranca irregular invalida cadencia anterior`() {
+        val now = System.currentTimeMillis()
+        fun transaction(id: Long, daysAgo: Long) = TransactionEntity(
+            id = id,
+            cardId = 10L,
+            holderId = 100L,
+            merchant = "NETFLIX.COM",
+            totalAmount = 5590L,
+            purchaseTimestamp = now - TimeUnit.DAYS.toMillis(daysAgo)
+        )
+
+        // Two historical 30-day intervals followed by a charge only five days later.
+        val transactions = listOf(
+            transaction(1L, 65L),
+            transaction(2L, 35L),
+            transaction(3L, 5L),
+            transaction(4L, 0L)
+        )
+
+        assertTrue(
+            "A cobranca mais recente irregular deve impedir a deteccao automatica",
+            SubscriptionTracker.detectSubscriptions(transactions).isEmpty()
+        )
+    }
+
+    @Test
+    fun `aceita parcelamento confirmado manualmente mesmo quando tem multiplas parcelas`() {
+        val tx = TransactionEntity(
+            id = 1L,
+            cardId = 10L,
+            holderId = 100L,
+            merchant = "ACADEMIA",
+            totalAmount = 11990L,
+            installmentsCount = 12,
+            purchaseTimestamp = System.currentTimeMillis(),
+            isRecurring = true
+        )
+
+        val detected = SubscriptionTracker.detectSubscriptions(listOf(tx))
+        assertEquals(1, detected.size)
+        assertTrue(detected.single().isUserConfirmed)
+        assertEquals(11990L, detected.single().lastAmount)
+    }
+
     @Test
     fun `calcula custos fixos mensais comprometidos considerando apenas ativas`() {
         val list = listOf(
@@ -139,6 +185,7 @@ class SubscriptionTrackerTest {
     fun `calcula impacto no limite com precisao e trata limites zerados`() {
         assertEquals(10.0, SubscriptionTracker.calculateLimitImpactPercent(10000L, 100000L), 0.001)
         assertEquals(25.5, SubscriptionTracker.calculateLimitImpactPercent(25500L, 100000L), 0.001)
+        assertEquals(120.0, SubscriptionTracker.calculateLimitImpactPercent(120000L, 100000L), 0.001)
         assertEquals(0.0, SubscriptionTracker.calculateLimitImpactPercent(5000L, 0L), 0.001)
         assertEquals(0.0, SubscriptionTracker.calculateLimitImpactPercent(5000L, -100L), 0.001)
     }
