@@ -169,6 +169,28 @@ class SubscriptionTrackerTest {
         assertEquals(11990L, detected.single().lastAmount)
     }
 
+
+    @Test
+    fun `aplica limites de ciclo documentados entre 28 e 32 dias`() {
+        val now = System.currentTimeMillis()
+        fun detectedAt(days: Long): Boolean {
+            val first = TransactionEntity(
+                id = 1L, cardId = 10L, holderId = 100L, merchant = "SERVICE",
+                totalAmount = 2000L, purchaseTimestamp = now - TimeUnit.DAYS.toMillis(days)
+            )
+            val latest = TransactionEntity(
+                id = 2L, cardId = 10L, holderId = 100L, merchant = "SERVICE",
+                totalAmount = 2000L, purchaseTimestamp = now
+            )
+            return SubscriptionTracker.detectSubscriptions(listOf(first, latest)).isNotEmpty()
+        }
+
+        assertTrue(detectedAt(28L))
+        assertTrue(detectedAt(32L))
+        assertFalse(detectedAt(27L))
+        assertFalse(detectedAt(33L))
+    }
+
     @Test
     fun `calcula custos fixos mensais comprometidos considerando apenas ativas`() {
         val list = listOf(
