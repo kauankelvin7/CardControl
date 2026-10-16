@@ -6,7 +6,7 @@
 - Versão Atual: `v2.3.0` (versionCode 5) — Liquid Glass Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
 - Release no GitHub: Atualizada em `v2.3.0` com novo APK `CardControl-v2.3.0.apk` assinado e verificado.
-  - APK SHA-256: `a3cadd0bca5005d91f31dbe85f7d24171819f5052756a77f6679c8233a6503e5`
+  - APK SHA-256: `5c396a933ef1e29869084716ad478c05bca7ef9dc9f0070e2fb5f69139aebaeb`
   - Assinatura: Esquema v2 com certificado oficial `A5:24:7A:59:4D:30:C8:FA:F4:6C:8B:30:06:AB:09:27:35:CC:DE:FD:67:81:1B:41:96:5E:01:87:28:64:93:28`
 - Feature Integrada: UI/UX & Design System Overhaul — Liquid Glass Edition (Color tokens, Tabular Figures `tnum`, CurrencyText, OverlineText, TopBar contextual, BottomBar estilizada, FAB unificado e resolução de bugs de corte de inputs)
 
