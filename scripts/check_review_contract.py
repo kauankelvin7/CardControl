@@ -59,6 +59,18 @@ repository_tests = read("app/src/test/java/com/cardcontrol/app/CardRepositoryRec
 if "variacoes de caixa" not in repository_tests.casefold():
     fail("Repository sync must have a merchant-normalization duplicate regression test")
 
+dao = read("app/src/main/java/com/cardcontrol/app/data/local/AppDao.kt")
+if "(:isRecurring = 0 OR installmentsCount = 1)" not in dao:
+    fail("DAO must reject setting recurrence on installment purchases")
+
+ui = read("app/src/main/java/com/cardcontrol/app/ui/MainScreen.kt")
+if "inst.totalInstallments == 1" not in ui or '"Parcelamento"' not in ui:
+    fail("UI must hide recurring action and explain installment rows")
+
+guard_test = read("app/src/test/java/com/cardcontrol/app/RecurringTransactionGuardTest.kt")
+if "bloqueia recorrencia manual em compra parcelada" not in guard_test.casefold():
+    fail("A real Room DAO regression test must enforce the installment guard")
+
 migration_test = read("app/src/test/java/com/cardcontrol/app/RoomV4ToV5MigrationTest.kt")
 if "java.lang.reflect.Proxy" in migration_test or "Proxy.newProxyInstance" in migration_test:
     fail("Room migration test must execute against SQLite, not a SQL-recording proxy")
