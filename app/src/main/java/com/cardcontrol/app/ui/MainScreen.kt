@@ -343,15 +343,23 @@ fun MainScreen(
                                                                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                                                                     modifier = Modifier.weight(1f, fill = false)
                                                                 ) {
-                                                                    IconButton(
-                                                                        onClick = { viewModel.markTransactionRecurring(inst.transactionId, true) },
-                                                                        modifier = Modifier.size(24.dp)
-                                                                    ) {
-                                                                        Icon(
-                                                                            Icons.Default.Repeat,
-                                                                            contentDescription = "Confirmar como Recorrente",
-                                                                            tint = GlassPalette.CyanGlow.copy(alpha = 0.75f),
-                                                                            modifier = Modifier.size(16.dp)
+                                                                    if (inst.totalInstallments == 1) {
+                                                                        IconButton(
+                                                                            onClick = { viewModel.markTransactionRecurring(inst.transactionId, true) },
+                                                                            modifier = Modifier.size(24.dp)
+                                                                        ) {
+                                                                            Icon(
+                                                                                Icons.Default.Repeat,
+                                                                                contentDescription = "Confirmar como Recorrente",
+                                                                                tint = GlassPalette.CyanGlow.copy(alpha = 0.75f),
+                                                                                modifier = Modifier.size(16.dp)
+                                                                            )
+                                                                        }
+                                                                    } else {
+                                                                        Text(
+                                                                            "Parcelamento",
+                                                                            style = MaterialTheme.typography.labelSmall,
+                                                                            color = GlassPalette.TextSecondary
                                                                         )
                                                                     }
                                                                     Text("• ${inst.merchantSnapshot} (${inst.installmentNumber}/${inst.totalInstallments})", style = MaterialTheme.typography.bodySmall, color = GlassPalette.TextPrimary)
