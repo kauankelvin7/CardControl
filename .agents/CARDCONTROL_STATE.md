@@ -1,11 +1,12 @@
-# CardControl â€” Ponto de Retomada e Estado CanÃ´nico
+# CardControl — Ponto de Retomada e Estado Canônico
 
-- Data da Ãšltima Auditoria: 16 de Outubro de 2026
-- Branch ativa: `main`
-- HEAD SHA: `52367b8`
-- Status do Projeto: PRs #7 e #13 integrados na main; assinatura persistente configurada e validada; Draft Release v2.3.0 gerada com sucesso via GitHub Actions
+- Data da Última Auditoria: 16 de Outubro de 2026
+- Branch ativa: `feat/subscription-and-recurring-tracker` (Sincronizada com `upstream/main` v2.3.0)
+- HEAD SHA: `1923387`
+- Commit base: `d59efe7`
 - Versão Atual: `v2.3.0` (versionCode 5)
-- Versão do banco Room: `v4` (`MIGRATION_3_4`)
+- Versão do banco Room: `v5` (`MIGRATION_4_5`)
+- Feature Adicionada: Detector de Assinaturas e Gastos Recorrentes (Subscription Tracker, TASK-015, ADR-009)
 
 ---
 

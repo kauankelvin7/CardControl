@@ -88,8 +88,16 @@ tasks:
     verification: "Unit tests simulating incoming Pix push notifications"
 
   - id: "TASK-009"
-    title: "Backup e exportaÃ§Ã£o local do banco de dados SQLite (JSON/CSV)"
+    title: "Backup e exportação local do banco de dados SQLite (JSON/CSV)"
     status: "PENDING"
     owner: "Core Data"
     dependencies: ["TASK-001"]
     verification: "Deterministic export and import verification test"
+
+  - id: "TASK-015"
+    title: "Detector de Assinaturas e Gastos Recorrentes (Subscription & Recurring Tracker)"
+    status: "COMPLETED"
+    owner: "Core Data / Domain / UI"
+    dependencies: ["TASK-010", "TASK-012"]
+    verification: "Room v4->v5 migration (MIGRATION_4_5), SubscriptionTrackerTest (PASS), RoomV4ToV5MigrationTest, LiquidGlass RecurringChargesCard, assembleDebug & lintDebug PASS"
+

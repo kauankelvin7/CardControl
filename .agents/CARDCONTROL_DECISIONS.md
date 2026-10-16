@@ -54,3 +54,10 @@
 - **Status:** Aceito
 - **Contexto:** A existência simultânea das pastas `.agent` e `.agents` gerava duplicidade de skills e ambiguidade no fluxo dos agentes do Antigravity IDE.
 - **Decisão:** Eliminar a pasta legada `.agent` e unificar toda a governança e skills na raiz oficial `.agents`. Integrar as skills oficiais `graphify` (Graphify-Labs), `context-mode` (v1.0.169) e `ponytail`. Fortalecer o script de validação `check_state.ps1` com o padrão Leve de rastreabilidade e integridade estrita.
+
+---
+
+## ADR-009: Detecção Offline de Gastos Recorrentes e Assinaturas (Subscription Tracker)
+- **Status:** Aceito
+- **Contexto:** Necessidade de identificar assinaturas e despesas fixas recorrentes (streaming, academias, planos de assinatura) de forma 100% offline, alertando sobre variações de preço ("price creep") e mensurando o impacto percentual no limite total dos cartões.
+- **Decisão:** Criar a entidade `RecurringChargeEntity` e schema Room v5 com migration determinística `MIGRATION_4_5`. O motor `SubscriptionTracker` analisa intervalos de compra entre 28 e 32 dias para transações com mesmo merchant normalizado ou transações manualmente sinalizadas com `isRecurring = true`. A interface `LiquidGlass` no dashboard exibe o comprometimento mensal, o impacto percentual no limite e alerta visual caso haja aumento de valor.
