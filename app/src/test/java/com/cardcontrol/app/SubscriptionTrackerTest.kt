@@ -151,7 +151,7 @@ class SubscriptionTrackerTest {
     }
 
     @Test
-    fun `aceita parcelamento confirmado manualmente mesmo quando tem multiplas parcelas`() {
+    fun `nao aceita parcelamento confirmado manualmente como recorrencia`() {
         val tx = TransactionEntity(
             id = 1L,
             cardId = 10L,
@@ -164,9 +164,7 @@ class SubscriptionTrackerTest {
         )
 
         val detected = SubscriptionTracker.detectSubscriptions(listOf(tx))
-        assertEquals(1, detected.size)
-        assertTrue(detected.single().isUserConfirmed)
-        assertEquals(11990L, detected.single().lastAmount)
+        assertTrue("Compras parceladas nao podem ser contabilizadas como assinatura", detected.isEmpty())
     }
 
 
