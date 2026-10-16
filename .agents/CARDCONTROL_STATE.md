@@ -1,12 +1,12 @@
 # CardControl — Ponto de Retomada e Estado Canônico
 
 - Data da Última Auditoria: 16 de Outubro de 2026
-- Branch ativa: `feat/subscription-and-recurring-tracker` (Sincronizada com `upstream/main` v2.3.0)
-- HEAD SHA: `1923387`
-- Commit base: `d59efe7`
+- Branch ativa: `feat/liquid-glass-ui-ux` (Baseada em `main` v2.3.0 / `86ca7f7`)
+- HEAD SHA: `1c9256f`
+- Commit base: `86ca7f7`
 - Versão Atual: `v2.3.0` (versionCode 5)
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
-- Feature Adicionada: Detector de Assinaturas e Gastos Recorrentes (Subscription Tracker, TASK-015, ADR-009)
+- Feature Adicionada: UI/UX & Design System Overhaul — Liquid Glass Edition (Color tokens, Tabular Figures `tnum`, CurrencyText, OverlineText, TopBar contextual, BottomBar estilizada, FAB unificado e resolução de bugs de corte de inputs)
 
 ---
 
