@@ -246,6 +246,42 @@ class CardRepository(private val dao: AppDao) {
         val txs = dao.getAllTransactionsSnapshot()
         val detected = com.cardcontrol.app.util.SubscriptionTracker.detectSubscriptions(txs)
         val existingCharges = dao.getAllRecurringChargesSnapshot().toMutableList()
+
+        // Repair duplicates created by earlier versions before syncing new detections.
+        val duplicateGroups = existingCharges.groupBy {
+            Pair(
+                it.cardId,
+                com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(it.merchant)
+            )
+        }.values.filter { it.size > 1 }
+
+        for (matches in duplicateGroups) {
+            val canonical = matches.sortedWith(
+                compareByDescending<RecurringChargeEntity> { it.isUserConfirmed }
+                    .thenByDescending { it.isActive }
+                    .thenBy { it.id }
+            ).first()
+            val latest = matches.maxBy { it.lastChargedTimestamp }
+            val consolidated = canonical.copy(
+                holderId = latest.holderId,
+                expectedAmount = latest.expectedAmount,
+                lastAmount = latest.lastAmount,
+                previousAmount = latest.previousAmount,
+                billingCycleDays = latest.billingCycleDays,
+                lastChargedTimestamp = latest.lastChargedTimestamp,
+                isActive = matches.any { it.isActive },
+                isUserConfirmed = matches.any { it.isUserConfirmed }
+            )
+            dao.insertRecurringCharge(consolidated)
+            matches.filter { it.id != canonical.id }.forEach { dao.deleteRecurringCharge(it.id) }
+            existingCharges.removeAll { existing ->
+                existing.cardId == canonical.cardId &&
+                    com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(existing.merchant) ==
+                    com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(canonical.merchant)
+            }
+            existingCharges.add(consolidated)
+        }
+
         for (item in detected) {
             val normalizedMerchant = com.cardcontrol.app.util.SubscriptionTracker.normalizeMerchant(item.merchant)
             val existingIndex = existingCharges.indexOfFirst {
