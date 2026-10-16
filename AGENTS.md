@@ -86,7 +86,7 @@ Se houver divergência técnica, prevalece o código verificado no repositório 
 ## 4. Estado Atual do Sistema e Contratos
 
 - **Arquitetura:** Aplicativo Android nativo (Kotlin 1.9.24 + Jetpack Compose + Room 2.6.1 SQLite + Android Keystore), 100% offline-first.
-- **Banco de Dados Room v4:** Banco SQLite privado `card_control_offline.db`. Todas as grandezas monetárias (`subLimit`, `totalLimit`, `totalAmount`, `amount`, `amountPaid`) utilizam representação inteira canônica em centavos (`Long`). Campo explícito `bank` em `credit_cards` desacopla a identificação bancária do apelido do cartão. Esquemas Room exportados e versionados em `app/schemas/` (12 índices no schema v4).
+- **Banco de Dados Room v5:** Banco SQLite privado `card_control_offline.db`, com migrações registradas de forma incremental até `MIGRATION_4_5` e esquema exportado em `app/schemas/`. Todas as grandezas monetárias (`subLimit`, `totalLimit`, `totalAmount`, `amount`, `amountPaid`) utilizam representação inteira canônica em centavos (`Long`). Campo explícito `bank` em `credit_cards` desacopla a identificação bancária do apelido do cartão.
 - **Captura em Tempo Real:** `BankNotificationListener` monitorando notificações push locais dos 9 maiores bancos do Brasil. Deduplicação inteligente via hash SHA-256 e janela de 120s. Desambiguação segura via `SupportedBank`.
 - **Concorrência Segura:** `CardRepository.expenseMutex` compartilhado em `companion object` garantindo inserção atômica e proteção contra duplicatas entre múltiplas instâncias na mesma JVM.
 - **Segurança de Entrada:** Sanitização contra CRLF injection (`sanitizeHeaderField`), bloqueio de Path Traversal (`sanitizeFileNameSegment`), e limite de payload contra ReDoS (`boundNotificationInput`).
@@ -107,7 +107,7 @@ Se houver divergência técnica, prevalece o código verificado no repositório 
    - Compras realizadas no dia de fechamento (`closingDay`) ou após avançam para a fatura do mês seguinte.
    - Viradas de ano civil incrementam o ano e resetam o mês para 1.
 4. **Compatibilidade Room:**
-   - Migrações seguras preservando foreign keys e índices SQLite (11 índices no schema v3).
+   - Migrações sequenciais e não destrutivas, preservando dados, foreign keys, índices e defaults do schema; validar a execução em SQLite real, não apenas inspecionar strings SQL.
 
 ---
 
