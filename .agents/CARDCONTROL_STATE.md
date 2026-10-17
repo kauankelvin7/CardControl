@@ -2,7 +2,7 @@
 
 - Data da Última Auditoria: 17 de Outubro de 2026
 - Branch ativa: `design/v3-home-comparison` (Baseada em `03fad77`)
-- HEAD SHA: `ed1a563`
+- HEAD SHA: `b3d9f3a`
 - Versão Atual: `v2.3.0` (versionCode 5) — Vitrine Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
 - Release no GitHub: Atualizada em `v2.3.0` com novo APK `CardControl-v2.3.0.apk` assinado e verificado.
