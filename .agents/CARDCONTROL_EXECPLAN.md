@@ -37,4 +37,4 @@ Fornecer um gerenciador de cartões de crédito e rateio de faturas com captura 
 - [x] **M2 - Motor de Notificações e TestHarness:** Extração e deduplicação SHA-256 de 9 bancos com testes automatizados.
 - [x] **M3 - Interface Liquid Glass e Formulários:** Compose moderno com dark theme, adaptive icons e teclados dedicados.
 - [x] **M4 - Chave de Release e Automação:** Assinatura v2, liberação do serviço no Android e documentação de agentes.
-- [ ] **M5 - Conciliação Automática de Pix:** Leitura de Pix recebido para baixa de faturas.
+- [x] **M5 - Motor Multicategoria e Detecção de Pix:** Leitura e categorização de compras por aproximação, carteiras digitais, Pix enviado/recebido, transferências e boletos com testes automatizados.

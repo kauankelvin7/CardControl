@@ -1,14 +1,14 @@
 # CardControl — Ponto de Retomada e Estado Canônico
 
-- Data da Última Auditoria: 16 de Outubro de 2026
-- Branch ativa: `main` (Sincronizada em `e7c02be`)
-- HEAD SHA: `e7c02be`
+- Data da Última Auditoria: 17 de Outubro de 2026
+- Branch ativa: `main` (Sincronizada em `15b1e70`)
+- HEAD SHA: `15b1e70`
 - Versão Atual: `v2.3.0` (versionCode 5) — Liquid Glass Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
 - Release no GitHub: Atualizada em `v2.3.0` com novo APK `CardControl-v2.3.0.apk` assinado e verificado.
   - APK SHA-256: `5c396a933ef1e29869084716ad478c05bca7ef9dc9f0070e2fb5f69139aebaeb`
   - Assinatura: Esquema v2 com certificado oficial `A5:24:7A:59:4D:30:C8:FA:F4:6C:8B:30:06:AB:09:27:35:CC:DE:FD:67:81:1B:41:96:5E:01:87:28:64:93:28`
-- Feature Integrada: UI/UX & Design System Overhaul — Liquid Glass Edition (Color tokens, Tabular Figures `tnum`, CurrencyText, OverlineText, TopBar contextual, BottomBar estilizada, FAB unificado e resolução de bugs de corte de inputs)
+- Feature Integrada: Expansão do Motor de Notificações Bancárias (Gastos de Cartão, Aproximação NFC, Carteiras Digitais, Pix Enviado/Recebido, TED e Boletos)
 
 ---
 
@@ -44,17 +44,24 @@
    - Unificação do pipeline de notificações em `CardRepository.processBankNotification` delegando para `BankNotificationProcessor` canônico com trava atômica.
    - Eliminação de redundâncias em `BankNotificationParser.issuerFromCardName` com delegação direta a `SupportedBank.inferFromCardName`.
    - Comentários naturais e explicativos em português brasileiro documentando decisões, concorrência e regras contábeis.
-   - Suíte de 97 testes unitários 100% aprovados e compilação `assembleDebug` validada.
+
+6. **Expansão do Motor de Notificações Bancárias (Gastos, Aproximação, Pix, TED e Boletos):**
+   - Removidos falsos positivos de rejeição (`pix`, `transferencia`, `boleto`) de `IGNORED_CONTEXT_REGEX`, preservando bloqueio seguro de tokens, senhas, faturas e estornos.
+   - Suporte a compras com cartões por aproximação NFC ("por aproximação", "contactless"), carteiras digitais (Apple Pay / Samsung Pay) e confirmações ("Você pagou", "Transação realizada").
+   - Detecção especializada de Pix Enviado (`PIX_SENT`), Pix Recebido (`PIX_RECEIVED`), Transferências bancárias (`TRANSFER_SENT`) e Boletos (`BILL_PAID`).
+   - Extração inteligente de contrapartes (destinatário ou remetente) com lookahead para pontuações e sanitização de sufixos de cartão.
+   - Deduplicação SHA-256 aprimorada incorporando a categoria da notificação para prevenir colisões entre operações distintas de mesmo valor.
+   - 19 novos testes unitários adicionados no `BankNotificationParserTest`, elevando a suíte para 52 testes específicos do parser e 116 testes no total geral do projeto.
 
 ---
 
-## 2. EvidÃªncias EmpÃ­ricas dos Gates de Engenharia
+## 2. Evidências Empíricas dos Gates de Engenharia
 
-- **Testes UnitÃ¡rios:** 82 testes executados, 82 aprovados, 0 falhas, 0 erros, 0 ignorados (`BUILD SUCCESSFUL`).
-- **ValidaÃ§Ã£o em SQLite Real (`scripts/test_room_v3_to_v4_real_sqlite.py`):** 100% aprovado com tratamento de bancos ambÃ­guos.
-- **CanÃ¡rios de Empacotamento Seguro (`scripts/test_bundle_canary.py`):** 28 arquivos-canÃ¡rio sensÃ­veis bloqueados com sucesso.
-- **CompilaÃ§Ã£o e Linting:** `lintDebug` aprovado com 0 erros, `assembleDebug` gerado com sucesso.
-- **Integridade Git:** `git diff --check` aprovado sem inconsistÃªncias.
+- **Testes Unitários:** 116 testes executados, 116 aprovados, 0 falhas, 0 erros, 0 ignorados (`BUILD SUCCESSFUL`).
+- **Validação em SQLite Real (`scripts/test_room_v3_to_v4_real_sqlite.py`):** 100% aprovado com tratamento de bancos ambíguos.
+- **Canários de Empacotamento Seguro (`scripts/test_bundle_canary.py`):** 28 arquivos-canário sensíveis bloqueados com sucesso.
+- **Compilação e Linting:** `assembleDebug` gerado com sucesso (APK 16,46 MB em `app/build/outputs/apk/debug/app-debug.apk`).
+- **Integridade Git:** `git diff --check` aprovado sem inconsistências.
 - **ConfiguraÃ§Ã£o Remota:** GitHub CLI confirmou os 4 secrets e as 2 variables no repositÃ³rio `kauankelvin7/CardControl`.
 
 ---

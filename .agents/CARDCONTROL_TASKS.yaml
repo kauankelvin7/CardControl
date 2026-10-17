@@ -81,11 +81,11 @@ tasks:
     verification: "PR #7 e PR #13: testDebugUnitTest, lintDebug e assembleDebug PASS; 28 canarios PASS; PR #7 e PR #13 integrados na main; 4 secrets e 2 variables verificados no GitHub; fingerprint A5:24... confirmado"
 
   - id: "TASK-008"
-    title: "DetecÃ§Ã£o e conciliaÃ§Ã£o automÃ¡tica de Pix recebido para abatimento"
-    status: "PENDING"
+    title: "Detecção e conciliação automática de Pix, transferências, boletos e compras por aproximação"
+    status: "COMPLETED"
     owner: "Service Engine"
     dependencies: ["TASK-002"]
-    verification: "Unit tests simulating incoming Pix push notifications"
+    verification: "Unit tests simulating incoming Pix, TED, Boletos e Aproximação push notifications (52 tests in BankNotificationParserTest, 116 total PASS)"
 
   - id: "TASK-009"
     title: "Backup e exportação local do banco de dados SQLite (JSON/CSV)"

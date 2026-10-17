@@ -59,8 +59,8 @@ Em vez de exigir credenciais de open banking, o aplicativo escuta em segundo pla
 | **Faturas** | Consolidado mensal bruto, abatimentos acumulados e saldo líquido restante |
 | **Titulares e Sublimites** | Controle de pessoas e dependentes com tetos de gastos e barras de progresso visual |
 | **Cartões de Crédito** | Cadastro de cartões com dias de fechamento e vencimento, limite global e titular padrão |
-| **Captura em Tempo Real** | Leitor passivo de notificações para Nubank, Inter, Itaú, C6, Santander, Bradesco, Caixa, PicPay e Mercado Pago |
-| **Deduplicação** | Hash SHA-256 de pacote, valor, loja e final do cartão com janela de 2 minutos para evitar compras repetidas |
+| **Captura em Tempo Real** | Leitor passivo de notificações para Nubank, Inter, Itaú, C6, Santander, Bradesco, Caixa, PicPay e Mercado Pago, com suporte a compras de cartão, aproximação (NFC), carteiras digitais (Apple Pay / Samsung Pay), Pix enviado/recebido, transferências (TED) e boletos |
+| **Deduplicação** | Hash SHA-256 de pacote, categoria, valor, loja/contraparte e final do cartão com janela temporal de 2 minutos para evitar eventos repetidos |
 | **Rateio e WhatsApp** | Geração de faturas formatadas em PDF nativo e mensagem estruturada para envio direto no WhatsApp |
 | **Abatimentos e Baixas** | Registro de pagamentos parciais ou Pix para restauração imediata do limite disponível |
 | **Alertas por E-mail** | Envio opcional direto por SMTP TLS com saldo restante pós-compra do titular |
@@ -68,7 +68,7 @@ Em vez de exigir credenciais de open banking, o aplicativo escuta em segundo pla
 
 ### Captura em segundo plano
 
-O serviço `BankNotificationListener` estende `NotificationListenerService` nativo do Android. Ele não executa loops de consulta periódica nem drena bateria: o sistema operacional notifica o serviço somente quando um dos pacotes bancários autorizados publica um alerta de compra. A partir daí, o texto é sanitizado, as parcelas e estabelecimentos são extraídos via Regex e o registro é inserido no banco de dados SQLite local.
+O serviço `BankNotificationListener` estende `NotificationListenerService` nativo do Android. Ele não executa loops de consulta periódica nem drena bateria: o sistema operacional notifica o serviço somente quando um dos pacotes bancários autorizados publica um alerta transacional. A partir daí, o texto é sanitizado contra ReDoS, CRLF e injeções, a categoria do evento (`CARD_EXPENSE`, `PIX_SENT`, `PIX_RECEIVED`, `TRANSFER_SENT`, `BILL_PAID`) é classificada, as parcelas, valores e estabelecimentos ou contrapartes são extraídos via Regex de alto desempenho e o registro é processado com deduplicação criptográfica SHA-256.
 
 ---
 

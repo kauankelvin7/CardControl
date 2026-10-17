@@ -1,6 +1,7 @@
 package com.cardcontrol.app
 
 import com.cardcontrol.app.service.BankNotificationParser
+import com.cardcontrol.app.service.NotificationCategory
 import com.cardcontrol.app.service.ParsedBankExpense
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -254,13 +255,12 @@ class BankNotificationParserTest {
     // ---------- Mensagens que não são compra ----------
 
     @Test
-    fun `mensagens sem compra sao ignoradas`() {
+    fun `mensagens nao transacionais sao ignoradas`() {
         val pkg = "com.nu.production"
-        assertNull(BankNotificationParser.parse(pkg, "Pix recebido", "Você recebeu um Pix de R$ 50,00 de JOAO SILVA."))
-        assertNull(BankNotificationParser.parse(pkg, "Transferência", "Transferência de R$ 100,00 realizada em CONTA DESTINO."))
         assertNull(BankNotificationParser.parse(pkg, "Seu cartão chegou", "Desbloqueie agora pelo app."))
-        assertNull(BankNotificationParser.parse(pkg, "Pagamento", "Você pagou R$ 30,00 para MARIA SOUZA."))
         assertNull(BankNotificationParser.parse(pkg, "Código", "Seu código de verificação é 123456."))
+        assertNull(BankNotificationParser.parse(pkg, "Token", "Seu token de segurança para acesso é 998877."))
+        assertNull(BankNotificationParser.parse(pkg, "Segurança", "Alteração de senha confirmada com sucesso."))
     }
 
     @Test
@@ -402,5 +402,266 @@ class BankNotificationParserTest {
         assertEquals("Bradesco", BankNotificationParser.issuerFromCardName("Bradesco Elo Nanquim"))
         assertNull(BankNotificationParser.issuerFromCardName("Cartão Genérico"))
         assertNull(BankNotificationParser.issuerFromCardName("Nubank e Itaú juntos"))
+    }
+
+    // ---------- Compras por Aproximação (NFC) e Carteiras Digitais ----------
+
+    @Test
+    fun `nubank - compra por aproximacao contactless`() {
+        val r = parseOk(
+            "com.nu.production",
+            "Compra por aproximação",
+            "Compra de R$ 32,50 por aproximação aprovada em SUPERMERCADO DIA no cartão final 1234."
+        )
+        assertEquals("Nubank", r.bankName)
+        assertEquals(NotificationCategory.CARD_EXPENSE, r.category)
+        assertEquals(3_250L, r.amountCents)
+        assertEquals("SUPERMERCADO DIA", r.merchant)
+        assertEquals("1234", r.lastFourDigits)
+        assertEquals(1, r.installments)
+    }
+
+    @Test
+    fun `inter - pagamento aprovado via carteira digital apple pay`() {
+        val r = parseOk(
+            "br.com.intermedium",
+            "Apple Pay",
+            "Pagamento aprovado de R$ 89,00 em RESTAURANTE JAPONES com cartão final 5678."
+        )
+        assertEquals("Inter", r.bankName)
+        assertEquals(NotificationCategory.CARD_EXPENSE, r.category)
+        assertEquals(8_900L, r.amountCents)
+        assertEquals("RESTAURANTE JAPONES", r.merchant)
+        assertEquals("5678", r.lastFourDigits)
+    }
+
+    @Test
+    fun `itau - transacao por aproximacao com valor antes da aprovacao`() {
+        val r = parseOk(
+            "com.itau",
+            "Itaú Cartões",
+            "Transação por aproximação no valor de R$ 15,00 aprovada em PADARIA ESTRELA final 4433."
+        )
+        assertEquals("Itaú", r.bankName)
+        assertEquals(NotificationCategory.CARD_EXPENSE, r.category)
+        assertEquals(1_500L, r.amountCents)
+        assertEquals("PADARIA ESTRELA", r.merchant)
+        assertEquals("4433", r.lastFourDigits)
+    }
+
+    @Test
+    fun `nubank - compra confirmada voce pagou sem palavra aprovada`() {
+        val r = parseOk(
+            "com.nu.production",
+            "Pagamento confirmado",
+            "Você pagou R$ 99,00 em UBER TRIP com cartão final 1234."
+        )
+        assertEquals("Nubank", r.bankName)
+        assertEquals(NotificationCategory.CARD_EXPENSE, r.category)
+        assertEquals(9_900L, r.amountCents)
+        assertEquals("UBER TRIP", r.merchant)
+        assertEquals("1234", r.lastFourDigits)
+    }
+
+    @Test
+    fun `c6 - transacao realizada no valor de`() {
+        val r = parseOk(
+            "com.c6bank.app",
+            "C6 Bank",
+            "Transação realizada de R$ 45,00 em FARMACIA RAIA com final 9988."
+        )
+        assertEquals("C6 Bank", r.bankName)
+        assertEquals(NotificationCategory.CARD_EXPENSE, r.category)
+        assertEquals(4_500L, r.amountCents)
+        assertEquals("FARMACIA RAIA", r.merchant)
+        assertEquals("9988", r.lastFourDigits)
+    }
+
+    // ---------- Pix Enviado ----------
+
+    @Test
+    fun `nubank - pix enviado com destinatario extraido com sucesso`() {
+        val r = parseOk(
+            "com.nu.production",
+            "Transferência enviada",
+            "Você transferiu R$ 150,00 para Marcos Souza via Pix."
+        )
+        assertEquals("Nubank", r.bankName)
+        assertEquals(NotificationCategory.PIX_SENT, r.category)
+        assertEquals(15_000L, r.amountCents)
+        assertEquals("Marcos Souza", r.counterpart)
+        assertNull(r.lastFourDigits)
+    }
+
+    @Test
+    fun `nubank - pix enviado com titulo explicito`() {
+        val r = parseOk(
+            "com.nu.production",
+            "Pix enviado",
+            "Pix enviado no valor de R$ 85,00 para Dra Camila."
+        )
+        assertEquals("Nubank", r.bankName)
+        assertEquals(NotificationCategory.PIX_SENT, r.category)
+        assertEquals(8_500L, r.amountCents)
+        assertEquals("Dra Camila", r.counterpart)
+    }
+
+    @Test
+    fun `inter - pix enviado realizado com sucesso`() {
+        val r = parseOk(
+            "br.com.intermedium",
+            "Pix enviado",
+            "Você realizou um Pix de R$ 200,00 para Carlos Alberto."
+        )
+        assertEquals("Inter", r.bankName)
+        assertEquals(NotificationCategory.PIX_SENT, r.category)
+        assertEquals(20_000L, r.amountCents)
+        assertEquals("Carlos Alberto", r.counterpart)
+    }
+
+    @Test
+    fun `itau - pix realizado enviado com sucesso`() {
+        val r = parseOk(
+            "com.itau",
+            "Pix realizado",
+            "Pix enviado com sucesso no valor de R$ 350,00 para Maria Oliveira."
+        )
+        assertEquals("Itaú", r.bankName)
+        assertEquals(NotificationCategory.PIX_SENT, r.category)
+        assertEquals(35_000L, r.amountCents)
+        assertEquals("Maria Oliveira", r.counterpart)
+    }
+
+    @Test
+    fun `bradesco - pix enviado`() {
+        val r = parseOk(
+            "com.bradesco",
+            "Bradesco",
+            "Transferência Pix de R$ 120,00 enviada para Joao Silva."
+        )
+        assertEquals("Bradesco", r.bankName)
+        assertEquals(NotificationCategory.PIX_SENT, r.category)
+        assertEquals(12_000L, r.amountCents)
+        assertEquals("Joao Silva", r.counterpart)
+    }
+
+    @Test
+    fun `santander - pix enviado`() {
+        val r = parseOk(
+            "com.santander.app",
+            "Santander",
+            "Pix enviado de R$ 45,00 para Padaria Central."
+        )
+        assertEquals("Santander", r.bankName)
+        assertEquals(NotificationCategory.PIX_SENT, r.category)
+        assertEquals(4_500L, r.amountCents)
+        assertEquals("Padaria Central", r.counterpart)
+    }
+
+    @Test
+    fun `c6 - pix enviado`() {
+        val r = parseOk(
+            "com.c6bank.app",
+            "C6 Bank",
+            "Pix de R$ 60,00 enviado com sucesso para Ana Paula."
+        )
+        assertEquals("C6 Bank", r.bankName)
+        assertEquals(NotificationCategory.PIX_SENT, r.category)
+        assertEquals(6_000L, r.amountCents)
+        assertEquals("Ana Paula", r.counterpart)
+    }
+
+    @Test
+    fun `mercado pago - pix enviado`() {
+        val r = parseOk(
+            "com.mercadopago.wallet",
+            "Pix enviado",
+            "Você transferiu R$ 40,00 para Lucas Santos via Pix."
+        )
+        assertEquals("Mercado Pago", r.bankName)
+        assertEquals(NotificationCategory.PIX_SENT, r.category)
+        assertEquals(4_000L, r.amountCents)
+        assertEquals("Lucas Santos", r.counterpart)
+    }
+
+    // ---------- Pix Recebido ----------
+
+    @Test
+    fun `nubank - pix recebido com remetente extraido`() {
+        val r = parseOk(
+            "com.nu.production",
+            "Transferência recebida",
+            "Você recebeu uma transferência de R$ 50,00 de João Silva."
+        )
+        assertEquals("Nubank", r.bankName)
+        assertEquals(NotificationCategory.PIX_RECEIVED, r.category)
+        assertEquals(5_000L, r.amountCents)
+        assertEquals("João Silva", r.counterpart)
+    }
+
+    @Test
+    fun `inter - pix recebido`() {
+        val r = parseOk(
+            "br.com.intermedium",
+            "Pix Recebido",
+            "Você recebeu um Pix de R$ 300,00 de Pedro Alvares."
+        )
+        assertEquals("Inter", r.bankName)
+        assertEquals(NotificationCategory.PIX_RECEIVED, r.category)
+        assertEquals(30_000L, r.amountCents)
+        assertEquals("Pedro Alvares", r.counterpart)
+    }
+
+    @Test
+    fun `itau - pix recebido`() {
+        val r = parseOk(
+            "com.itau",
+            "Pix recebido",
+            "Você recebeu um Pix de R$ 500,00 de Jose Pereira."
+        )
+        assertEquals("Itaú", r.bankName)
+        assertEquals(NotificationCategory.PIX_RECEIVED, r.category)
+        assertEquals(50_000L, r.amountCents)
+        assertEquals("Jose Pereira", r.counterpart)
+    }
+
+    // ---------- Transferências TED e Boletos ----------
+
+    @Test
+    fun `nubank - ted enviada`() {
+        val r = parseOk(
+            "com.nu.production",
+            "Transferência enviada",
+            "Você transferiu R$ 1.000,00 para Pedro Alcantara via TED."
+        )
+        assertEquals("Nubank", r.bankName)
+        assertEquals(NotificationCategory.TRANSFER_SENT, r.category)
+        assertEquals(100_000L, r.amountCents)
+        assertEquals("Pedro Alcantara", r.counterpart)
+    }
+
+    @Test
+    fun `nubank - boleto pago`() {
+        val r = parseOk(
+            "com.nu.production",
+            "Boleto pago",
+            "Pagamento de R$ 250,00 do boleto CONDOMINIO realizado com sucesso."
+        )
+        assertEquals("Nubank", r.bankName)
+        assertEquals(NotificationCategory.BILL_PAID, r.category)
+        assertEquals(25_000L, r.amountCents)
+    }
+
+    @Test
+    fun `inter - boleto liquidado`() {
+        val r = parseOk(
+            "br.com.intermedium",
+            "Boleto liquidado",
+            "Boleto de R$ 180,00 pago com sucesso em ENEL DISTRIBUICAO."
+        )
+        assertEquals("Inter", r.bankName)
+        assertEquals(NotificationCategory.BILL_PAID, r.category)
+        assertEquals(18_000L, r.amountCents)
+        assertEquals("ENEL DISTRIBUICAO", r.merchant)
     }
 }

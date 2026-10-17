@@ -9,7 +9,18 @@ import java.text.Normalizer
 import java.util.Locale
 
 /**
- * Resultado de uma notificação bancária reconhecida, com segurança, como compra no cartão.
+ * Categoria da notificação bancária identificada.
+ */
+enum class NotificationCategory(val description: String) {
+    CARD_EXPENSE("Compra no Cartão"),
+    PIX_SENT("Pix Enviado"),
+    PIX_RECEIVED("Pix Recebido"),
+    TRANSFER_SENT("Transferência Enviada"),
+    BILL_PAID("Boleto Pago")
+}
+
+/**
+ * Resultado de uma notificação bancária reconhecida, com segurança, como movimentação financeira.
  *
  * [amount] é o valor exato em centavos (contrato de [com.cardcontrol.app.data.repository.CardRepository.registerExpense]);
  * [amountCents] é um alias semântico.
@@ -20,9 +31,12 @@ data class ParsedBankExpense(
     val merchant: String,
     val lastFourDigits: String?,
     val installments: Int,
-    val dedupHash: String
+    val dedupHash: String,
+    val category: NotificationCategory = NotificationCategory.CARD_EXPENSE
 ) {
     val amountCents: Long get() = amount
+    val counterpart: String get() = merchant
+    val isCardExpense: Boolean get() = category == NotificationCategory.CARD_EXPENSE
 }
 
 /**
@@ -58,21 +72,51 @@ object BankNotificationParser {
 
     private val PT_BR = Locale("pt", "BR")
 
-    // Todos os padrões de palavra-chave operam sobre texto minúsculo e sem acentos.
-    private val PURCHASE_TRIGGER_REGEX = Regex(
+    // Gatilhos específicos por categoria (operam sobre texto minúsculo e sem acentos).
+    private val CARD_PURCHASE_TRIGGER_REGEX = Regex(
         """compra\s+(?:no\s+(?:credito|debito)\s+)?aprovada""" +
-            """|compra\s+de\s+(?:r\$|brl)\s*[0-9.,]+\s+aprovada""" +
-            """|compra\s+(?:realizada|efetuada)""" +
-            """|transacao\s+(?:no\s+(?:credito|debito)\s+)?aprovada""" +
-            """|voce\s+comprou"""
+            """|compra\s+(?:de\s+(?:r\$|brl)\s*[0-9.,]+\s+)?(?:por\s+aproximac\w*\s+)?aprovada""" +
+            """|compra\s+(?:por\s+aproximac\w*\s+)?(?:realizada|efetuada|aprovada)""" +
+            """|transacao\s+(?:por\s+aproximac\w*\s+)?(?:no\s+(?:credito|debito)\s+)?aprovada""" +
+            """|transacao\s+(?:por\s+aproximac\w*\s+)?(?:no\s+valor\s+de\s+(?:r\$|brl)\s*[0-9.,]+\s+)?(?:aprovada|realizada|efetuada)""" +
+            """|transacao\s+(?:realizada|efetuada)""" +
+            """|pagamento\s+(?:por\s+aproximac\w*\s+)?(?:aprovado|confirmado|realizado)""" +
+            """|voce\s+comprou""" +
+            """|voce\s+pagou\s+(?:r\$|brl)"""
     )
 
-    /** Contextos que nunca são compra, em qualquer posição do texto. */
+    private val PIX_SENT_TRIGGER_REGEX = Regex(
+        """\bpix\s+enviado\b""" +
+            """|transferencia\s+pix\s+(?:de\s+(?:r\$|brl)\s*[0-9.,]+\s+)?enviada""" +
+            """|voce\s+transferiu\s+(?:r\$|brl)\s*[0-9.,]+\s+para\b.+?\bvia\s+pix\b""" +
+            """|voce\s+realizou\s+um\s+pix\b""" +
+            """|voce\s+pagou\s+(?:r\$|brl)\s*[0-9.,]+\s+para\b.+?\bcom\s+pix\b""" +
+            """|pix\s+de\s+(?:r\$|brl)\s*[0-9.,]+\s+enviado"""
+    )
+
+    private val PIX_RECEIVED_TRIGGER_REGEX = Regex(
+        """\bpix\s+recebido\b""" +
+            """|voce\s+recebeu\s+um\s+pix\b""" +
+            """|voce\s+recebeu\s+uma\s+transferencia\s+(?:pix\s+)?de\s+(?:r\$|brl)"""
+    )
+
+    private val TRANSFER_SENT_TRIGGER_REGEX = Regex(
+        """\btransferencia\s+(?:enviada|realizada|efetuada)\b""" +
+            """|voce\s+transferiu\s+(?:r\$|brl)\s*[0-9.,]+\s+para\b.+?\bvia\s+(?:ted|doc)\b""" +
+            """|transferencia\s+de\s+(?:r\$|brl)\s*[0-9.,]+\s+realizada"""
+    )
+
+    private val BILL_PAID_TRIGGER_REGEX = Regex(
+        """\bboleto\s+(?:pago|liquidado|compensado)\b""" +
+            """|pagamento\s+de\s+(?:r\$|brl)\s*[0-9.,]+\s+do\s+boleto"""
+    )
+
+    /** Contextos que nunca são movimentações válidas, em qualquer posição do texto. */
     private val IGNORED_CONTEXT_REGEX = Regex(
-        """\b(?:negada|recusada|nao\s+aprovada|nao\s+autorizada|estorn\w*|cancelad\w*|cancelamento""" +
-            """|reembolso|devolucao|devolvid\w*|fatura""" +
-            """|aumento\s+de\s+limite|novo\s+limite|limite\s+aumentado|emprestimo|pix|transferencia""" +
-            """|boleto|saque|codigo\s+de\s+(?:verificacao|seguranca)|token\s+de\s+seguranca|seu\s+token|senha)\b"""
+        """\b(?:negada|recusada|nao\s+aprovada|nao\s+autorizada|saldo\s+insuficiente|limite\s+insuficiente""" +
+            """|estorn\w*|cancelad\w*|cancelamento|reembolso|devolucao|devolvid\w*|fatura""" +
+            """|aumento\s+de\s+limite|novo\s+limite|limite\s+aumentado|emprestimo|saque""" +
+            """|codigo\s+de\s+(?:verificacao|seguranca)|token\s+de\s+seguranca|seu\s+token|senha)\b"""
     )
 
     /**
@@ -106,6 +150,18 @@ object BankNotificationParser {
         """(?:\bem|\bno|\bna|\bestabelecimento:?|\bloja:?)\s+(?![0-9])([\p{L}\p{N}*&'./\- ]{2,40}?)""" +
             """(?=\s+(?:em\s+[0-9]|para\b|com\b|no\s+cart|cart[aã]o\b|final\b|no\s+valor|de\s+(?:R\$|BRL)|R\$|BRL|[àa]s\s+[0-9]|aprovad|compra\b)""" +
             """|\s*[.,:;!]\s|\s*[.,:;!]?\s*$)""",
+        RegexOption.IGNORE_CASE
+    )
+
+    private val RECIPIENT_REGEX = Regex(
+        """(?:para\s+|destinatario:?\s+|a\s+favor\s+de\s+)([\p{L}\p{N}\s]{2,40}?)""" +
+            """(?=\s+(?:via\b|com\b|no\s+valor|de\s+(?:r\$|brl)|(?:r\$|brl)|chave\b)|\s*[.,:;!]|\s*$)""",
+        RegexOption.IGNORE_CASE
+    )
+
+    private val SENDER_REGEX = Regex(
+        """(?:de\s+|remetente:?\s+|recebido\s+de\s+)([\p{L}\p{N}\s]{2,40}?)""" +
+            """(?=\s+(?:via\b|com\b|no\s+valor|em\s+(?:r\$|brl)|(?:r\$|brl)|chave\b)|\s*[.,:;!]|\s*$)""",
         RegexOption.IGNORE_CASE
     )
 
@@ -151,14 +207,22 @@ object BankNotificationParser {
         val normalized = normalize(content)
         if (IGNORED_CONTEXT_REGEX.containsMatchIn(normalized)) return null
         if (PROMOTIONAL_AMOUNT_REGEX.containsMatchIn(normalized)) return null
-        if (!PURCHASE_TRIGGER_REGEX.containsMatchIn(normalized)) return null
+
+        val category = when {
+            PIX_SENT_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.PIX_SENT
+            PIX_RECEIVED_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.PIX_RECEIVED
+            TRANSFER_SENT_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.TRANSFER_SENT
+            BILL_PAID_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.BILL_PAID
+            CARD_PURCHASE_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.CARD_EXPENSE
+            else -> return null
+        }
 
         val amountCents = extractPurchaseAmountCents(content) ?: return null
         val installments = extractInstallments(content) ?: return null
         val lastFour = extractLastFour(content) ?: return null
-        val merchant = extractMerchant(content) ?: return null
+        val merchant = extractCounterpart(content, category) ?: return null
 
-        val hashInput = "$packageName|${lastFour.value ?: "----"}|$amountCents|$installments|${merchant.lowercase(PT_BR)}"
+        val hashInput = "$packageName|${category.name}|${lastFour.value ?: "----"}|$amountCents|$installments|${merchant.lowercase(PT_BR)}"
 
         return ParsedBankExpense(
             bankName = bankName,
@@ -166,8 +230,45 @@ object BankNotificationParser {
             merchant = merchant,
             lastFourDigits = lastFour.value,
             installments = installments,
-            dedupHash = sha256(hashInput)
+            dedupHash = sha256(hashInput),
+            category = category
         )
+    }
+
+    private fun extractCounterpart(content: String, category: NotificationCategory): String? {
+        when (category) {
+            NotificationCategory.PIX_SENT, NotificationCategory.TRANSFER_SENT -> {
+                for (match in RECIPIENT_REGEX.findAll(content)) {
+                    val raw = match.groupValues[1].trim().trimEnd('.', '-', '/')
+                    val clean = SecuritySanitizer.sanitizeHeaderField(raw, maxLength = 40)
+                    if (clean.length >= 2 && clean.any { it.isLetter() }) {
+                        return clean
+                    }
+                }
+                val m = extractMerchant(content)
+                if (m != null) return m
+                return if (category == NotificationCategory.PIX_SENT) "Destinatário Pix" else "Transferência Enviada"
+            }
+            NotificationCategory.PIX_RECEIVED -> {
+                for (match in SENDER_REGEX.findAll(content)) {
+                    val raw = match.groupValues[1].trim().trimEnd('.', '-', '/')
+                    val clean = SecuritySanitizer.sanitizeHeaderField(raw, maxLength = 40)
+                    if (clean.length >= 2 && clean.any { it.isLetter() }) {
+                        return clean
+                    }
+                }
+                val m = extractMerchant(content)
+                if (m != null) return m
+                return "Remetente Pix"
+            }
+            NotificationCategory.BILL_PAID -> {
+                val m = extractMerchant(content)
+                return m ?: "Boleto Bancário"
+            }
+            NotificationCategory.CARD_EXPENSE -> {
+                return extractMerchant(content)
+            }
+        }
     }
 
     /** Converte "1.850,00", "1850,00", "1,850.00" ou "1850.00" para centavos exatos. */
@@ -221,10 +322,11 @@ object BankNotificationParser {
 
     private fun extractMerchant(content: String): String? {
         for (match in MERCHANT_REGEX.findAll(content)) {
-            val candidate = SecuritySanitizer.sanitizeHeaderField(
+            var candidate = SecuritySanitizer.sanitizeHeaderField(
                 match.groupValues[1].trim().trimEnd('.', '-', '/'),
                 maxLength = 40
             )
+            candidate = candidate.replace(Regex("""\s+no\s+(?:seu\s+)?cart[aã]o.*$""", RegexOption.IGNORE_CASE), "").trim()
             if (candidate.length < 2) continue
             if (candidate.none { it.isLetter() }) continue
             if (MERCHANT_FORBIDDEN_WORDS.containsMatchIn(normalize(candidate))) continue

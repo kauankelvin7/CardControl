@@ -61,3 +61,10 @@
 - **Status:** Aceito
 - **Contexto:** Necessidade de identificar assinaturas e despesas fixas recorrentes (streaming, academias, planos de assinatura) de forma 100% offline, alertando sobre variações de preço ("price creep") e mensurando o impacto percentual no limite total dos cartões.
 - **Decisão:** Criar a entidade `RecurringChargeEntity` e schema Room v5 com migration determinística `MIGRATION_4_5`. O motor `SubscriptionTracker` só detecta recorrência automática quando o intervalo entre as duas cobranças mais recentes do mesmo merchant normalizado e cartão estiver entre 28 e 32 dias; a confirmação manual só é válida para cobranças únicas; transações parceladas são excluídas da detecção de assinaturas. A sincronização reutiliza registros pela identidade normalizada do merchant, e o impacto percentual no limite preserva valores acima de 100% para não ocultar ultrapassagens. A interface `LiquidGlass` exibe o comprometimento mensal e alerta visual sobre aumento de valor.
+
+---
+
+## ADR-010: Motor de Captura Multicategoria de Notificações Bancárias (Gastos, Aproximação NFC, Carteiras Digitais, Pix, TED e Boletos)
+- **Status:** Aceito
+- **Contexto:** O parser anterior restringia-se a compras com cartões e descartava sumariamente notificações que contivessem palavras como `pix`, `transferencia` ou `boleto`, além de não reconhecer transações por aproximação (*contactless* NFC) ou confirmações de carteiras digitais (Apple Pay / Samsung Pay).
+- **Decisão:** Introduzir o enum `NotificationCategory` (`CARD_EXPENSE`, `PIX_SENT`, `PIX_RECEIVED`, `TRANSFER_SENT`, `BILL_PAID`), enriquecer o `BankNotificationParser` com extração de contrapartes (`counterpart`) e estabelecimentos, lookaheads seguros para pontuação final (`(?=\s+(?:via\b|com\b...)\b|\s*[.,:;!]|\s*$)`), desambiguação da deduplicação SHA-256 por categoria e preservação estrita do cálculo financeiro canônico em centavos (`Long`). Rejeições legítimas de segurança (tokens 2FA, senhas provisórias, códigos de autenticação) e sanitização contra ReDoS e CRLF continuam rigorosamente ativas.
