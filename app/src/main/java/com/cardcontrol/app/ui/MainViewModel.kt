@@ -43,7 +43,7 @@ data class DashboardUiState(
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
-class MainViewModel(
+class MainViewModel @JvmOverloads constructor(
     application: Application,
     private val repository: CardRepository = CardRepository(AppDatabase.getInstance(application).appDao()),
     val credentialStore: CredentialStore = CredentialStore(application)
