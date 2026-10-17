@@ -46,36 +46,9 @@ data class CCColors(
 )
 
 /**
- * Instâncias oficiais dos tokens por direção de cor (Anexo B).
+ * Instância oficial ativa dos tokens da Direção C · Grafite (Anexo B).
+ * A estrutura de tokens permanece extensível para novas direções futuras.
  */
-val CCEmberDark = CCColors(
-    bgBase = Color(0xFF0D0B0A),
-    surface1 = Color(0xFF151210),
-    surface2 = Color(0xFF1C1815),
-    surface3 = Color(0xFF26201C),
-    textPrimary = Color(0xFFF6F1EC),
-    textSecondary = Color(0xFFBDB2A8),
-    textTertiary = Color(0xFF8F857C),
-    accent = Color(0xFFE5591D),
-    onAccent = Color(0xFF1A0B04),
-    accentContainer = Color(0x29E5591D),
-    glowColor = Color(0x24E5591D)
-)
-
-val CCObsidianAzulDark = CCColors(
-    bgBase = Color(0xFF080C16),
-    surface1 = Color(0xFF0F1524),
-    surface2 = Color(0xFF151C30),
-    surface3 = Color(0xFF1D2742),
-    textPrimary = Color(0xFFEEF2FA),
-    textSecondary = Color(0xFFA9B4CB),
-    textTertiary = Color(0xFF7C89A5),
-    accent = Color(0xFF38BDF8),
-    onAccent = Color(0xFF04121C),
-    accentContainer = Color(0x2938BDF8),
-    glowColor = Color(0x2438BDF8)
-)
-
 val CCGrafiteDark = CCColors(
     bgBase = Color(0xFF0B0B0C),
     surface1 = Color(0xFF141416),
@@ -90,6 +63,7 @@ val CCGrafiteDark = CCColors(
     accentDynamic = Color(0xFFE69F00), // Cartão Inter / Categoria
     glowColor = Color(0x1AE69F00)
 )
+
 
 /**
  * Paleta Categórica Okabe-Ito (Pessoas e Categorias — 5.2.3).

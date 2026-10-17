@@ -8,21 +8,6 @@ import androidx.compose.ui.tooling.preview.Preview
  * Permite visualização e comparação direta no Android Studio.
  */
 
-@Preview(name = "Direção A · Ember (360x800dp)", widthDp = 360, heightDp = 800)
-@Composable
-fun HomeScreenEmberPreview() {
-    CCTheme(direction = ColorDirection.EMBER) {
-        HomeScreenV3()
-    }
-}
-
-@Preview(name = "Direção B · Obsidian Azul (360x800dp)", widthDp = 360, heightDp = 800)
-@Composable
-fun HomeScreenAzulPreview() {
-    CCTheme(direction = ColorDirection.OBSIDIAN_AZUL) {
-        HomeScreenV3()
-    }
-}
 
 @Preview(name = "Direção C · Grafite (Recomendado) (360x800dp)", widthDp = 360, heightDp = 800)
 @Composable

@@ -37,10 +37,11 @@ fun CCTheme(
     content: @Composable () -> Unit
 ) {
     val colors = when (direction) {
-        ColorDirection.EMBER -> CCEmberDark
-        ColorDirection.OBSIDIAN_AZUL -> CCObsidianAzulDark
-        ColorDirection.GRAFITE -> CCGrafiteDark
+        ColorDirection.GRAFITE,
+        ColorDirection.EMBER,
+        ColorDirection.OBSIDIAN_AZUL -> CCGrafiteDark
     }
+
 
     val materialColorScheme = darkColorScheme(
         primary = colors.accent,
