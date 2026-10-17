@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Tema oficial do CardControl com suporte nativo a Edge-to-Edge -->
+    <style name="Theme.CardControl" parent="android:Theme.Material.NoActionBar">
+        <!-- Permite que a janela desenhe atrás das barras do sistema -->
+        <item name="android:windowDrawsSystemBarBackgrounds">true</item>
+        <item name="android:statusBarColor">@android:color/transparent</item>
+        <item name="android:navigationBarColor">@android:color/transparent</item>
+        <item name="android:windowLightStatusBar">false</item>
+        <!-- Cor neutra inicial alinhada ao fundo do tema para eliminar qualquer flash ou faixa preta -->
+        <item name="android:windowBackground">#111717</item>
+    </style>
+</resources>

@@ -165,6 +165,7 @@ fun MainScreenContent(
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
+                        .statusBarsPadding()
                         .padding(horizontal = 16.dp, vertical = 10.dp)
                         .liquidGlassCard(cornerRadius = 18.dp)
                         .padding(horizontal = 16.dp, vertical = 12.dp)
@@ -179,7 +180,7 @@ fun MainScreenContent(
                                 "CardControl",
                                 style = MaterialTheme.typography.titleMedium,
                                 fontWeight = FontWeight.ExtraBold,
-                                color = TextPrimary
+                                color = MaterialTheme.colorScheme.onSurface
                             )
                         }
                         AnimatedVisibility(visible = selectedTab == 0) {
@@ -194,14 +195,14 @@ fun MainScreenContent(
                                     Icon(
                                         Icons.Default.ChevronLeft,
                                         contentDescription = "Mês anterior",
-                                        tint = TextPrimary,
+                                        tint = MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
                                 Text(
                                     "%02d/%d".format(state.selectedMonth, state.selectedYear),
                                     fontWeight = FontWeight.Bold,
-                                    color = TextPrimary,
+                                    color = MaterialTheme.colorScheme.onSurface,
                                     style = MaterialTheme.typography.bodyMedium.copy(
                                         fontFeatureSettings = "tnum",
                                         fontWeight = FontWeight.Bold
@@ -214,7 +215,7 @@ fun MainScreenContent(
                                     Icon(
                                         Icons.Default.ChevronRight,
                                         contentDescription = "Próximo mês",
-                                        tint = TextPrimary,
+                                        tint = MaterialTheme.colorScheme.onSurface,
                                         modifier = Modifier.size(18.dp)
                                     )
                                 }
@@ -224,15 +225,17 @@ fun MainScreenContent(
                 }
             },
             bottomBar = {
+                val primaryColor = MaterialTheme.colorScheme.primary
+                val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
                 val navItemColors = NavigationBarItemDefaults.colors(
-                    indicatorColor = PrimaryAccent.copy(alpha = 0.15f),
-                    selectedIconColor = PrimaryAccent,
-                    selectedTextColor = PrimaryAccent,
-                    unselectedIconColor = TextMuted,
-                    unselectedTextColor = TextMuted
+                    indicatorColor = primaryColor.copy(alpha = 0.15f),
+                    selectedIconColor = primaryColor,
+                    selectedTextColor = primaryColor,
+                    unselectedIconColor = onSurfaceVariant,
+                    unselectedTextColor = onSurfaceVariant
                 )
                 NavigationBar(
-                    containerColor = AppBackgroundTop.copy(alpha = 0.95f),
+                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
                     tonalElevation = 0.dp
                 ) {
                     NavigationBarItem(

@@ -16,6 +16,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.Dp
@@ -98,12 +99,18 @@ fun LiquidAmbientBackground(
     modifier: Modifier = Modifier,
     content: @Composable BoxScope.() -> Unit
 ) {
+    val bgBottom = MaterialTheme.colorScheme.background
+    val isDark = bgBottom.luminance() < 0.5f
+    val bgTop = if (isDark) Color(0xFF171C1D) else Color(0xFFE8F3F4)
+    val primaryGlow = MaterialTheme.colorScheme.primary
+    val secondaryGlow = MaterialTheme.colorScheme.secondary
+
     Box(
         modifier = modifier
             .fillMaxSize()
             .background(
                 Brush.verticalGradient(
-                    colors = listOf(AppBackgroundTop.copy(alpha = 0.90f), AppBackground)
+                    colors = listOf(bgTop.copy(alpha = 0.90f), bgBottom)
                 )
             )
     ) {
@@ -111,7 +118,7 @@ fun LiquidAmbientBackground(
             // Gradiente radial sutil no topo simulando iluminação ambiente de estúdio
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(PrimaryAccent.copy(alpha = 0.12f), Color.Transparent),
+                    colors = listOf(primaryGlow.copy(alpha = if (isDark) 0.12f else 0.07f), Color.Transparent),
                     center = Offset(size.width * 0.20f, size.height * 0.08f),
                     radius = size.minDimension * 0.70f
                 ),
@@ -120,7 +127,7 @@ fun LiquidAmbientBackground(
             )
             drawCircle(
                 brush = Brush.radialGradient(
-                    colors = listOf(SecondaryAccent.copy(alpha = 0.10f), Color.Transparent),
+                    colors = listOf(secondaryGlow.copy(alpha = if (isDark) 0.10f else 0.05f), Color.Transparent),
                     center = Offset(size.width * 0.85f, size.height * 0.40f),
                     radius = size.minDimension * 0.65f
                 ),

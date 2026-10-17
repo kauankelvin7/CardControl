@@ -1,6 +1,7 @@
 package com.cardcontrol.app.ui.designsystem
 
 import android.app.Activity
+import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
@@ -118,9 +119,16 @@ fun CardControlTheme(
         SideEffect {
             val window = (view.context as? Activity)?.window
             if (window != null) {
-                // Fundo transparente para permitir que o background Vitrine se estenda sob as barras
+                // Fundo transparente e ocupação total da tela sem barra preta (B2.5)
+                WindowCompat.setDecorFitsSystemWindows(window, false)
                 window.statusBarColor = Color.Transparent.toArgb()
                 window.navigationBarColor = Color.Transparent.toArgb()
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                    window.isStatusBarContrastEnforced = false
+                    window.isNavigationBarContrastEnforced = false
+                }
+
                 val insetsController = WindowCompat.getInsetsController(window, view)
                 // Ícones escuros na status bar quando o tema for claro; ícones claros quando escuro
                 insetsController.isAppearanceLightStatusBars = !dark
