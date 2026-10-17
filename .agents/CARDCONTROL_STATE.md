@@ -1,8 +1,8 @@
 # CardControl — Ponto de Retomada e Estado Canônico
 
 - Data da Última Auditoria: 17 de Outubro de 2026
-- Branch ativa: `main` (Sincronizada em `15b1e70`)
-- HEAD SHA: `15b1e70`
+- Branch ativa: `main` (Sincronizada em `03fad77`)
+- HEAD SHA: `03fad77`
 - Versão Atual: `v2.3.0` (versionCode 5) — Liquid Glass Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
 - Release no GitHub: Atualizada em `v2.3.0` com novo APK `CardControl-v2.3.0.apk` assinado e verificado.
