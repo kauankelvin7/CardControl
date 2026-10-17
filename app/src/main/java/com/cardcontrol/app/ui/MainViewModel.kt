@@ -39,7 +39,9 @@ data class DashboardUiState(
     val recurringCharges: List<RecurringChargeEntity> = emptyList(),
     val totalMonthlyRecurring: Long = 0L,
     val recurringLimitImpactPercent: Double = 0.0,
-    val priceCreepAlertCount: Int = 0
+    val priceCreepAlertCount: Int = 0,
+    val allInstallments: List<InstallmentEntity> = emptyList(),
+    val allPayments: List<PaymentEntity> = emptyList()
 )
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -141,7 +143,9 @@ class MainViewModel @JvmOverloads constructor(
             recurringCharges = recurring,
             totalMonthlyRecurring = totalRecurring,
             recurringLimitImpactPercent = limitImpactPercent,
-            priceCreepAlertCount = creepAlerts
+            priceCreepAlertCount = creepAlerts,
+            allInstallments = allInst,
+            allPayments = allPay
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), DashboardUiState())
 

@@ -38,14 +38,9 @@ import com.cardcontrol.app.data.local.CreditCardEntity
 import com.cardcontrol.app.data.local.HolderEntity
 import com.cardcontrol.app.util.MoneyUtils
 import com.cardcontrol.app.ui.components.GlassTextField
-import com.cardcontrol.app.ui.theme.AppBackground
-import com.cardcontrol.app.ui.theme.AppBackgroundTop
-import com.cardcontrol.app.ui.theme.GlassBorderTopLeft
 import com.cardcontrol.app.ui.theme.LiquidPillSelector
-import com.cardcontrol.app.ui.theme.PrimaryAccent
-import com.cardcontrol.app.ui.theme.SemanticSuccess
-import com.cardcontrol.app.ui.theme.TextPrimary
-import com.cardcontrol.app.ui.theme.TextSecondary
+import com.cardcontrol.app.ui.designsystem.CCTheme
+import com.cardcontrol.app.ui.designsystem.CcShapes
 
 /**
  * Diálogo modal para registrar pagamentos, reembolsos ou transferências Pix de titulares.
@@ -69,20 +64,20 @@ fun PaymentDialog(
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        containerColor = AppBackgroundTop,
-        titleContentColor = TextPrimary,
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        shape = CcShapes.dialog,
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CcShapes.dialog),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Payments, null, tint = SemanticSuccess)
+                Icon(Icons.Default.Payments, null, tint = CCTheme.extras.semantics.success)
                 Spacer(Modifier.width(8.dp))
                 Text("Registrar Abatimento / Pix", fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Quem Pagou:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                Text("Quem Pagou:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     LiquidPillSelector(
                         options = holders.map { it.id to it.name },
@@ -91,7 +86,7 @@ fun PaymentDialog(
                     )
                 }
                 if (cards.isNotEmpty()) {
-                    Text("Liberar Limite do Cartão:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                    Text("Liberar Limite do Cartão:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                         LiquidPillSelector(
                             options = cards.map { it.id to it.name },
@@ -105,7 +100,7 @@ fun PaymentDialog(
                     onValueChange = { amount = it },
                     label = "Valor Recebido (R$)",
                     placeholder = "0,00",
-                    leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = SemanticSuccess) },
+                    leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = CCTheme.extras.semantics.success) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
                 )
                 GlassTextField(
@@ -113,14 +108,14 @@ fun PaymentDialog(
                     onValueChange = { notes = it },
                     label = "Observação",
                     placeholder = "Ex: Pix fatura adiantada",
-                    leadingIcon = { Icon(Icons.Default.EditNote, null, tint = PrimaryAccent) },
+                    leadingIcon = { Icon(Icons.Default.EditNote, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismissRequest) {
-                Text("Cancelar", color = TextSecondary)
+                Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
@@ -131,10 +126,13 @@ fun PaymentDialog(
                         onConfirm(selectedHolderId, selectedCardId, v, notes)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = SemanticSuccess, contentColor = AppBackground),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = CCTheme.extras.semantics.success,
+                    contentColor = CCTheme.extras.semantics.onSuccess
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Abater", color = AppBackground, fontWeight = FontWeight.Bold)
+                Text("Abater", fontWeight = FontWeight.Bold)
             }
         }
     )

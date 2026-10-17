@@ -1,8 +1,8 @@
 # CardControl — Ponto de Retomada e Estado Canônico
 
 - Data da Última Auditoria: 17 de Outubro de 2026
-- Branch ativa: `design/v3-home-comparison` (Baseada em `03fad77`)
-- HEAD SHA: `638e990`
+- Branch ativa: `main`
+- HEAD SHA: `1b04a00b52ccca9a7575bfc661983d080c81c4a0`
 - Versão Atual: `v2.3.0` (versionCode 5) — Vitrine Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
 - Release no GitHub: Atualizada em `v2.3.0` com novo APK `CardControl-v2.3.0.apk` assinado e verificado.
@@ -63,14 +63,43 @@
    - Suíte de 10 novos testes unitários cobrindo contrastes WCAG, invariância de cores, algoritmos e 250 sementes aleatórias em `VitrineThemeAndContrastTest.kt`.
    - Suíte geral de testes unitários expandida para 126 testes (100% PASS).
 
+8. **Redesign Visual, UX e Vitrine (Google Wallet Style & Limpeza Global):**
+   - Top Bar compacta e contextual por aba ("Faturas", "Cartões", "Automação"), eliminando a cápsula de cabeçalho "CardControl".
+   - Tela Cartões: Palco contínuo suave (sem corte abrupto), cabeçalho contextual sem repetir banco/dígitos, menu ⋮ para editar/excluir, duas ações primárias equilibradas ("Lançar compra" e "Ver faturas"), e eliminação de comandos duplicados de cadastro (`SeeMoreAndAdd` e FAB redundante).
+   - Tela Faturas: Resumo mensal em `surfaceContainer` com contorno sutil, barra de progresso horizontal de quitação da fatura, FAB "Nova compra" em cor primária com alto contraste, e estados vazios específicos e contextuais.
+   - Tela Automação: Removidos todos os jargões internos ("Vitrine", "paleta sob medida", "imune a papel de parede", "Cofre Keystore"), agrupada em 3 seções compactas (Notificações, Aparência, E-mail) com formulário SMTP recolhível via `AnimatedVisibility`.
+    - Suíte de 139 testes unitários aprovados (100% PASS) e novo APK de debug gerado com sucesso com a Carteira 3D, Análises Financeiras Offline e Nova Navegação (18.285.866 bytes, SHA-256 53E98029BB057C8B537F4386C780D71E9483992CA133DBECD1F328F07BF8D65A).
+
+9. **Área de Análises Financeiras Offline e Gráficos Canvas Nativos (TASK-019):**
+   - Motor `FinancialAnalyticsEngine.kt` 100% determinístico e local sobre entidades Room v5 (`InstallmentEntity`, `PaymentEntity`, `CreditCardEntity`, `HolderEntity`, `RecurringChargeEntity`).
+   - Integridade contábil estrita: proibido `Double`/`Float` em valores monetários; utilização exclusiva de centavos inteiros (`Long`) e `BigDecimal` com `RoundingMode.HALF_UP`. Variações período-sobre-período expressas em basis points (`10000 = 100.00%`).
+   - Gráficos nativos em Compose Canvas sem bibliotecas externas: `CcBarChart` (barras mensais com linha de base), `CcDonutChart` (distribuição por categoria), `CcModalityBar` (modalidade) e `CcMerchantRanking` (top 5 estabelecimentos).
+   - Drilldown interativo com subtotal reconciliado em tempo real e filtros bidirecionais sincronizados.
+   - Suíte de 6 testes matemáticos rigorosos em `FinancialAnalyticsTest.kt` (100% PASS).
+
+10. **Nova IA de Navegação, Configurações na TopBar e Adaptive Icon Vetorial (TASK-020):**
+    - BottomBar atualizada para 3 abas essenciais: "Faturas" (0), "Cartões" (1), "Análises" (2).
+    - Ícone de engrenagem na TopBar abrindo tela dedicada de Configurações (`SettingsScreenContent`) com seta de retorno e `BackHandler` de sistema.
+    - Preservação integral de todas as funções de automação: escuta de notificações bancárias, alternância de tema claro/escuro (`AppearanceSection`), credenciais SMTP Google e gestão rápida de pessoas.
+    - Sincronização do filtro de cartão entre Cartões, Faturas e Análises.
+    - Novo Adaptive Icon original em `ic_launcher_background.xml` (Petróleo Vitrine `#00383B` / `#004E52` com iluminação ambiente) e `ic_launcher_foreground.xml` (duplo cartão 3D em perspectiva, chip EMV Cobre `#F2A365`/`#C76A2B`, ondas NFC e barras de crescimento financeiro rigorosamente dentro do safe-zone de 66dp).
+
 ---
 
 ## 2. Evidências Empíricas dos Gates de Engenharia
 
-- **Testes Unitários:** 126 testes executados, 126 aprovados, 0 falhas, 0 erros, 0 ignorados (`BUILD SUCCESSFUL in 1m 21s`).
+- **Gates Finais Consolidados — Redesign End-to-End (TASK-018, TASK-019, TASK-020, 2026-10-17):**
+  - `testDebugUnitTest`: PASS (139/139 testes, 0 falhas, 0 erros, `BUILD SUCCESSFUL in 47s`).
+  - `lintDebug`: PASS (`BUILD SUCCESSFUL in 1m 31s`).
+  - `assembleDebug`: PASS.
+  - Novo APK debug final gerado: `app/build/outputs/apk/debug/app-debug.apk` (18.285.866 bytes, mtime 16:52:35), SHA-256: `53E98029BB057C8B537F4386C780D71E9483992CA133DBECD1F328F07BF8D65A`.
+  - `git diff --check`: PASS (0 problemas de whitespace).
+  - Canários e Contrato de Revisão: 28 canários PASS, check_review_contract PASS.
+- **Validação visual (F7 — Sem Bloqueio de USB):** Critério atualizado expressamente pelo usuário — USB e emulador dispensados como pré-requisito; o usuário instalará e validará manualmente o APK final no próprio telefone.
+- **Testes Unitários:** 139 testes executados, 139 aprovados, 0 falhas, 0 erros, 0 ignorados (100% PASS).
 - **Validação em SQLite Real (`scripts/test_room_v3_to_v4_real_sqlite.py`):** 100% aprovado com tratamento de bancos ambíguos.
 - **Canários de Empacotamento Seguro (`scripts/test_bundle_canary.py`):** 28 arquivos-canário sensíveis bloqueados com sucesso.
-- **Compilação e Linting:** `assembleDebug` gerado com sucesso (APK 17,35 MB em `app/build/outputs/apk/debug/app-debug.apk`).
+- **Compilação e Linting:** `assembleDebug` gerado com sucesso (APK 18,29 MB em `app/build/outputs/apk/debug/app-debug.apk`).
 - **Integridade Git:** `git diff --check` aprovado sem inconsistências de whitespace.
 - **Configuração Remota:** GitHub CLI confirmou os 4 secrets e as 2 variables no repositório `kauankelvin7/CardControl`.
 

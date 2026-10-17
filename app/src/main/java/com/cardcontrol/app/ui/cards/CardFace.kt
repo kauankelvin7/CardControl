@@ -17,7 +17,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Sync
 import androidx.compose.material3.Icon
@@ -33,7 +32,6 @@ import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
@@ -47,8 +45,13 @@ import com.cardcontrol.app.ui.designsystem.CcShapes
 import com.cardcontrol.app.ui.designsystem.CcType
 
 /**
- * Frente do Cartão Vitrine (C2).
- * Proporção 1,586:1, cantos 24dp, gradiente linear 135° e sheen branco 8% no topo-esquerdo.
+ * Frente do Cartão Vitrine com Design System 3D e Modelos Personalizados por Banco (Google Wallet style).
+ *
+ * Invariantes de Design:
+ * 1. Proporção física padrão ISO/IEC 7810 ID-1 (1,586:1) e cantos de 24dp (CcShapes.card).
+ * 2. Chip EMV e ícone Contactless renderizados via Canvas nativo em Compose.
+ * 3. Identidade visual customizada por SupportedBank com texturas sutis e gradientes de alto contraste (WCAG >= 4.5:1).
+ * 4. Zero dados sensíveis expostos (apenas últimos 4 dígitos mascarados e nome do titular).
  */
 @Composable
 fun CardFace(
@@ -58,8 +61,24 @@ fun CardFace(
     modifier: Modifier = Modifier,
     isDark: Boolean = isSystemInDarkTheme()
 ) {
+    val visual = remember(card.bankId) {
+        BankCardVisuals.resolveByBankId(card.bankId)
+    }
+
     val palette = remember(card.colorSeed, card.bankId) {
         CardPaletteResolver.resolve(card.colorSeed, card.bankId)
+    }
+
+    // Se colorSeed for Auto, utiliza o gradiente rico bespoke do banco; se Custom/Preset, respeita a paleta
+    val cardBrush = remember(card.colorSeed, visual, palette) {
+        when (card.colorSeed) {
+            is CardColorSeed.Auto -> visual.backgroundBrush
+            else -> Brush.linearGradient(
+                colors = listOf(palette.start, palette.end),
+                start = Offset(0f, 0f),
+                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+            )
+        }
     }
 
     val contentDesc = buildString {
@@ -75,15 +94,15 @@ fun CardFace(
             .then(
                 if (isSelected) {
                     if (isDark) {
-                        // Tema escuro: sem sombra pesada; borda sutil de 1dp com branco 10%
-                        Modifier.border(1.dp, Color.White.copy(alpha = 0.12f), CcShapes.card)
+                        // Tema escuro: borda sutil de 1dp com branco 12% para realçar profundidade
+                        Modifier.border(1.dp, Color.White.copy(alpha = 0.14f), CcShapes.card)
                     } else {
-                        // Tema claro: sombra tingida pela cor do cartão (B4.3)
+                        // Tema claro: sombra tingida e rica pelo tom primário do cartão
                         Modifier.shadow(
-                            elevation = 10.dp,
+                            elevation = 12.dp,
                             shape = CcShapes.card,
-                            spotColor = palette.start.copy(alpha = 0.45f),
-                            ambientColor = Color.Black.copy(alpha = 0.16f)
+                            spotColor = visual.startColor.copy(alpha = 0.40f),
+                            ambientColor = Color.Black.copy(alpha = 0.18f)
                         )
                     }
                 } else {
@@ -103,25 +122,19 @@ fun CardFace(
                 }
             }
     ) {
-        val internalPadding = if (maxWidth < 300.dp) 16.dp else 20.dp
+        val isCompactWidth = maxWidth < 320.dp
+        val internalPadding = if (isCompactWidth) 14.dp else 18.dp
 
-        // Fundo com Gradiente Linear 135° e Brilho Radial 8% no canto superior-esquerdo (B4.1)
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(palette.start, palette.end),
-                        start = Offset(0f, 0f),
-                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                    )
-                )
+                .background(brush = cardBrush)
                 .drawBehind {
-                    // Sheen / Brilho branco 8% no canto superior-esquerdo
-                    val radius = size.width * 0.9f
+                    // Brilho specular suave no canto superior-esquerdo
+                    val radius = size.width * 0.85f
                     drawCircle(
                         brush = Brush.radialGradient(
-                            colors = listOf(Color.White.copy(alpha = 0.08f), Color.Transparent),
+                            colors = listOf(Color.White.copy(alpha = 0.09f), Color.Transparent),
                             center = Offset(0f, 0f),
                             radius = radius
                         ),
@@ -129,13 +142,20 @@ fun CardFace(
                         center = Offset(0f, 0f)
                     )
                 }
-                .padding(internalPadding)
         ) {
+            // Textura procedural sutil por banco (grade, fibra, arcos ou reflexo)
+            BankCardTexture(
+                textureType = visual.textureType,
+                accentColor = visual.accentColor
+            )
+
             Column(
-                modifier = Modifier.fillMaxSize(),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(internalPadding),
                 verticalArrangement = Arrangement.SpaceBetween
             ) {
-                // Topo: Monograma + Nome do Banco + Titular + Botão Virar
+                // 1. Linha Superior: Monograma/Marca + Nome do Banco e Titular à esquerda; NFC + Virar à direita
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -143,28 +163,31 @@ fun CardFace(
                 ) {
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        modifier = Modifier.weight(1f)
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        modifier = Modifier.weight(1f, fill = false)
                     ) {
-                        // Monograma 40dp (B8)
+                        // Monograma 38dp com cantos arredondados
                         Box(
                             modifier = Modifier
-                                .size(40.dp)
+                                .size(38.dp)
                                 .clip(CcShapes.monogram)
                                 .background(Color.White.copy(alpha = 0.16f)),
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
                                 text = card.monogram,
-                                style = CcType.cardBank.copy(fontSize = 17.sp, fontWeight = FontWeight.Bold),
+                                style = CcType.cardBank.copy(
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Bold
+                                ),
                                 color = Color.White
                             )
                         }
 
-                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
                             Text(
                                 text = card.bankName,
-                                style = CcType.cardBank,
+                                style = CcType.cardBank.copy(fontSize = 15.sp),
                                 color = Color.White,
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis
@@ -173,27 +196,26 @@ fun CardFace(
                             if (!card.holderName.isNullOrBlank()) {
                                 Row(
                                     verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
                                 ) {
-                                    // Avatar de iniciais do titular (20dp círculo)
                                     Box(
                                         modifier = Modifier
-                                            .size(20.dp)
+                                            .size(16.dp)
                                             .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.16f)),
+                                            .background(Color.White.copy(alpha = 0.18f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         val initial = card.holderName.firstOrNull()?.uppercase() ?: "T"
                                         Text(
                                             text = initial,
-                                            fontSize = 11.sp,
+                                            fontSize = 9.sp,
                                             fontWeight = FontWeight.Bold,
                                             color = Color.White
                                         )
                                     }
                                     Text(
                                         text = card.holderName,
-                                        style = CcType.cardHolder,
+                                        style = CcType.cardHolder.copy(fontSize = 11.sp),
                                         color = Color.White.copy(alpha = 0.88f),
                                         maxLines = 1,
                                         overflow = TextOverflow.Ellipsis
@@ -203,69 +225,110 @@ fun CardFace(
                         }
                     }
 
-                    // Botão Virar visível apenas no cartão selecionado (C2)
-                    if (isSelected) {
-                        IconButton(
-                            onClick = onFlip,
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .background(Color.White.copy(alpha = 0.14f))
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Sync,
-                                contentDescription = "Virar cartão",
-                                tint = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                    // Lado direito superior: Ícone Contactless (aproximação) + Botão de Virar
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        ContactlessWave(
+                            tint = Color.White.copy(alpha = 0.82f),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+
+                        if (isSelected) {
+                            IconButton(
+                                onClick = onFlip,
+                                modifier = Modifier
+                                    .size(36.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.White.copy(alpha = 0.14f))
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Sync,
+                                    contentDescription = "Virar cartão",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
                         }
                     }
                 }
 
-                // Base: Apelido / Tipo + Bandeira e Final Mascarado (C2)
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                // 2. Linha Intermediária: EMV Chip inteligente à esquerda; Sublimite/tipo à direita
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    EmvChip(isGold = visual.isChipGold)
+
+                    val subtitle = buildString {
+                        if (card.nickname.isNotBlank() && card.nickname != card.bankName) {
+                            append(card.nickname)
+                            append(" · ")
+                        }
+                        append(card.kind ?: "Crédito")
+                    }
+                    Text(
+                        text = subtitle,
+                        style = CcType.cardMeta.copy(fontSize = 11.sp),
+                        color = Color.White.copy(alpha = 0.85f),
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+
+                // 3. Linha Inferior: Número mascarado com tracking amplo + Titular & Bandeira
+                Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                    if (card.lastFourDigits.isNotBlank()) {
+                        Text(
+                            text = "••••  ••••  ••••  ${card.lastFourDigits}",
+                            style = CcType.cardMask.copy(
+                                fontSize = if (isCompactWidth) 14.sp else 16.sp,
+                                letterSpacing = 2.sp,
+                                fontWeight = FontWeight.SemiBold
+                            ),
+                            color = Color.White
+                        )
+                    }
+
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        val subtitle = buildString {
-                            if (card.nickname.isNotBlank() && card.nickname != card.bankName) {
-                                append(card.nickname)
-                                append(" · ")
-                            }
-                            append(card.kind ?: "Crédito")
-                        }
                         Text(
-                            text = subtitle,
-                            style = CcType.cardMeta,
-                            color = Color.White.copy(alpha = 0.88f),
+                            text = (card.holderName ?: card.nickname).uppercase(),
+                            style = CcType.cardMeta.copy(
+                                fontSize = 10.sp,
+                                letterSpacing = 1.sp,
+                                fontWeight = FontWeight.Medium
+                            ),
+                            color = Color.White.copy(alpha = 0.82f),
                             maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f, fill = false)
                         )
 
-                        if (!card.flag.isNullOrBlank()) {
-                            Box(
-                                modifier = Modifier
-                                    .clip(CcShapes.chip)
-                                    .background(Color.White.copy(alpha = 0.16f))
-                                    .padding(horizontal = 6.dp, vertical = 2.dp)
-                            ) {
-                                Text(
-                                    text = card.flag.uppercase(),
-                                    style = CcType.cardMeta.copy(fontWeight = FontWeight.Bold, fontSize = 10.sp),
-                                    color = Color.White
-                                )
-                            }
+                        Spacer(modifier = Modifier.width(8.dp))
+
+                        val flagOrBrand = card.flag?.uppercase() ?: visual.brandLabel.uppercase()
+                        Box(
+                            modifier = Modifier
+                                .clip(CcShapes.chip)
+                                .background(Color.White.copy(alpha = 0.16f))
+                                .padding(horizontal = 7.dp, vertical = 2.dp)
+                        ) {
+                            Text(
+                                text = flagOrBrand,
+                                style = CcType.cardMeta.copy(
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 9.sp,
+                                    letterSpacing = 0.5.sp
+                                ),
+                                color = Color.White
+                            )
                         }
-                    }
-
-                    if (card.lastFourDigits.isNotBlank()) {
-                        Text(
-                            text = card.maskedNumber,
-                            style = CcType.cardMask,
-                            color = Color.White
-                        )
                     }
                 }
             }

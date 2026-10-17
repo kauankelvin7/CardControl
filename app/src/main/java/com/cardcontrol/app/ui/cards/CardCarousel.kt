@@ -120,7 +120,8 @@ fun CardCarousel(
             val isSelected = card.id == selectedCardId
 
             // Transformações gráficas lidas exclusivamente na fase de desenho (C4.2 e D3)
-            val offset = ((pagerState.currentPage - page) + pagerState.currentPageOffsetFraction).absoluteValue.coerceIn(0f, 1f)
+            val pageOffset = (pagerState.currentPage - page) + pagerState.currentPageOffsetFraction
+            val offset = pageOffset.absoluteValue.coerceIn(0f, 1f)
 
             Box(
                 contentAlignment = Alignment.Center,
@@ -128,14 +129,18 @@ fun CardCarousel(
                     .fillMaxWidth()
                     .graphicsLayer {
                         if (!reduceMotion) {
-                            val scale = lerp(1f, 0.92f, offset)
+                            val scale = lerp(1f, 0.90f, offset)
                             scaleX = scale
                             scaleY = scale
-                            alpha = lerp(1f, 0.72f, offset)
-                            translationY = lerp(0f, 6.dp.toPx(), offset)
+                            alpha = lerp(1f, 0.68f, offset)
+                            translationY = lerp(0f, 8.dp.toPx(), offset)
+                            // Inclinação 3D sutil no eixo Y durante a rolagem para efeito de profundidade
+                            rotationY = (-pageOffset * 9f).coerceIn(-14f, 14f)
+                            cameraDistance = 14f * density
                         } else {
                             scaleX = 1f
                             scaleY = 1f
+                            rotationY = 0f
                             alpha = if (isSelected) 1f else 0.72f
                             translationY = 0f
                         }

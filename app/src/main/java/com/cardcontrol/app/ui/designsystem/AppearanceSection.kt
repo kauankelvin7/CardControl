@@ -51,12 +51,12 @@ fun AppearanceSection(
     Box(
         modifier = modifier
             .fillMaxWidth()
-            .clip(CcShapes.dialog)
-            .background(MaterialTheme.colorScheme.surfaceContainerHigh)
-            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CcShapes.dialog)
-            .padding(20.dp)
+            .clip(RoundedCornerShape(20.dp))
+            .background(MaterialTheme.colorScheme.surfaceContainer)
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+            .padding(18.dp)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(
                     imageVector = Icons.Default.Palette,
@@ -67,26 +67,18 @@ fun AppearanceSection(
                 Spacer(Modifier.width(10.dp))
                 Column {
                     Text(
-                        text = "Aparência & Tema Vitrine",
+                        text = "Aparência",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "Design System Vitrine com paleta sob medida",
+                        text = "Tema claro, escuro ou do sistema",
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
             }
-
-            Text(
-                text = "O CardControl utiliza a paleta fixa Vitrine (Claro: Petróleo & Cobre · Escuro: Grafite) para garantir máximo contraste e identidade contábil, imune a papéis de parede do Android.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-
-            OverlineText("Modo de exibição", color = MaterialTheme.colorScheme.primary)
 
             Row(
                 modifier = Modifier.fillMaxWidth(),

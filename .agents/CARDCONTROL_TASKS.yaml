@@ -108,3 +108,30 @@ tasks:
     dependencies: ["TASK-004"]
     verification: "VitrineThemeAndContrastTest (10 testes WCAG PASS, 126 testes totais PASS), verify.ps1 assembleDebug PASS, zero dynamic color reliance, Google Wallet style 3D carousel"
 
+  - id: "TASK-017"
+    title: "Redesign Visual, UX e Vitrine Google Wallet Style (F1-F9)"
+    status: "COMPLETED"
+    owner: "UI/UX / Design System"
+    dependencies: ["TASK-016"]
+    verification: "testDebugUnitTest PASS, lintDebug PASS, assembleDebug PASS, git diff --check PASS, revisao independente sem bloqueadores; validacao visual manual em aparelho pelo usuario via APK debug"
+
+  - id: "TASK-018"
+    title: "Carteira de Cartoes 3D Personalizada e Design System de Cartoes (Google Wallet Style)"
+    status: "COMPLETED"
+    owner: "UI/UX / Design System (Gemini - Continuidade)"
+    dependencies: ["TASK-016", "TASK-017"]
+    verification: "CardVisuals.kt, CardElements.kt, CardFace.kt, CardBack.kt, CardCarousel.kt, 131/131 unit tests PASS, lintDebug PASS, assembleDebug PASS (APK SHA-256: 936556419d89b884f0afa77a14db7b9594d34cde7967f9cd6e6b1f2b9031671d)"
+
+  - id: "TASK-019"
+    title: "Offline Financial Analytics Dashboard & Charting (Motor em Centavos Long/BigDecimal, Graficos Canvas e Drilldown)"
+    status: "COMPLETED"
+    owner: "Domain / UI Analytics (Gemini - Continuidade)"
+    dependencies: ["TASK-010", "TASK-015", "TASK-018"]
+    verification: "FinancialAnalyticsEngine.kt, CcCharts.kt, AnalyticsScreen.kt, FinancialAnalyticsTest.kt, reconciliacao exata em centavos Long sem Double, 139/139 testDebugUnitTest PASS, lintDebug PASS, assembleDebug PASS"
+
+  - id: "TASK-020"
+    title: "Product IA / Functional Flow Audit, Settings Relocation via TopBar Gear & Brand Vector Logo Redesign"
+    status: "COMPLETED"
+    owner: "UI/UX / Architecture / Branding (Gemini - Continuidade)"
+    dependencies: ["TASK-018", "TASK-019"]
+    verification: "MainScreen.kt (BottomBar Faturas/Cartoes/Analises + Engrenagem Configuracoes com BackHandler), ic_launcher_foreground.xml e ic_launcher_background.xml vetoriais Vitrine, revisao read-only Flash, gates 100% PASS e novo APK debug final (SHA-256: 53E98029BB057C8B537F4386C780D71E9483992CA133DBECD1F328F07BF8D65A)"

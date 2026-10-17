@@ -10,20 +10,14 @@ import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.cardcontrol.app.ui.theme.AppBackground
-import com.cardcontrol.app.ui.theme.PrimaryAccent
-import com.cardcontrol.app.ui.theme.TextPrimary
-import com.cardcontrol.app.ui.theme.TextSecondary
 
 /**
- * Campo de texto estilizado com a estética Liquid Glass.
+ * Campo de texto estilizado com a paleta Vitrine.
  *
- * Aplica fundo escuro semitranslúcido e bordas ciano em foco, mantendo contraste
- * adequado para digitação em ambientes escuros. A altura mínima de 58dp garante
+ * Usa tokens do tema para manter o contraste em temas claro e escuro. A altura mínima de 58dp garante
  * que o texto de suporte e rótulos flutuantes não sofram cortes verticais.
  */
 @Composable
@@ -44,8 +38,8 @@ fun GlassTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it, color = TextSecondary.copy(alpha = 0.5f)) } },
-        supportingText = supportingText?.let { { Text(it, style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, color = TextSecondary)) } },
+        placeholder = placeholder?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
+        supportingText = supportingText?.let { { Text(it, style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)) } },
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
         keyboardOptions = keyboardOptions,
@@ -54,15 +48,15 @@ fun GlassTextField(
         modifier = modifier.fillMaxWidth().heightIn(min = 58.dp),
         shape = RoundedCornerShape(14.dp),
         colors = OutlinedTextFieldDefaults.colors(
-            focusedBorderColor = PrimaryAccent,
-            unfocusedBorderColor = Color.White.copy(alpha = 0.18f),
-            focusedLabelColor = PrimaryAccent,
-            unfocusedLabelColor = TextSecondary,
-            focusedTextColor = TextPrimary,
-            unfocusedTextColor = TextPrimary,
-            focusedContainerColor = AppBackground.copy(alpha = 0.7f),
-            unfocusedContainerColor = AppBackground.copy(alpha = 0.45f),
-            cursorColor = PrimaryAccent
+            focusedBorderColor = MaterialTheme.colorScheme.primary,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            focusedLabelColor = MaterialTheme.colorScheme.primary,
+            unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
+            focusedTextColor = MaterialTheme.colorScheme.onSurface,
+            unfocusedTextColor = MaterialTheme.colorScheme.onSurface,
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerLow,
+            cursorColor = MaterialTheme.colorScheme.primary
         )
     )
 }

@@ -83,6 +83,21 @@ Se houver divergência técnica, prevalece o código verificado no repositório 
 
 ---
 
+## 3.1 Painel de Progresso Obrigatório e Protocolo de Execução
+
+`.agents/CARDCONTROL_PROGRESS.md` é o painel canônico de acompanhamento de execução e complementa o estado canônico, tarefas e ExecPlan. Todo agente deve lê-lo ao iniciar ou retomar o trabalho e atualizá-lo a cada subetapa, antes de trocar de modelo/agente e antes de encerrar a sessão.
+
+**Protocolo de Execução Obrigatório:**
+1. O agente executor escreve a tarefa ativa como `- [ ] EM ANDAMENTO — <tarefa> — responsável: <agente> — início: <hora>`.
+2. Ao verificar e comprovar a conclusão, marca `- [x] CONCLUÍDO — <tarefa> — evidência: <comando/arquivo/captura>`.
+3. Bloqueios externos (como ausência de dispositivo físico) permanecem sem `[x]`, no formato `- [ ] BLOQUEADO — <tarefa> — motivo: <motivo> — próxima ação: <ação>`.
+4. Concluída uma tarefa, iniciar automaticamente a próxima tarefa pendente sem interrupções desnecessárias.
+5. Ao trocar de modelo ou agente, registrar o ponto exato de handoff no painel e na nota conectada.
+6. O orquestrador (Argon) coordena; o executor escreve o progresso e atualiza a nota conectada (`continuidade-cardcontrol-r`). Um único escritor de código ativo por vez.
+7. Build verde e testes unitários não equivalem a validação visual em dispositivo. Não marcar validações visuais sem tela real observada.
+
+---
+
 ## 4. Estado Atual do Sistema e Contratos
 
 - **Arquitetura:** Aplicativo Android nativo (Kotlin 1.9.24 + Jetpack Compose + Room 2.6.1 SQLite + Android Keystore), 100% offline-first.

@@ -1,6 +1,10 @@
 package com.cardcontrol.app.ui
 
+import android.content.Context
+import android.content.ContextWrapper
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import com.cardcontrol.app.ui.analytics.AnalyticsScreen
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -11,6 +15,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -24,6 +29,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.LifecycleOwner
+import androidx.core.app.NotificationManagerCompat
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -37,7 +46,9 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import com.cardcontrol.app.ui.cards.CardUi
 import com.cardcontrol.app.ui.cards.CardsScreen
 import com.cardcontrol.app.ui.designsystem.AppearanceSection
+import com.cardcontrol.app.ui.designsystem.CCTheme
 import com.cardcontrol.app.ui.designsystem.ThemeMode
+import com.cardcontrol.app.ui.designsystem.resolveDark
 import com.cardcontrol.app.ui.components.GlassTextField
 import com.cardcontrol.app.ui.components.RecurringChargesCard
 import com.cardcontrol.app.ui.dialogs.CardDialog
@@ -45,7 +56,9 @@ import com.cardcontrol.app.ui.dialogs.DeleteCardDialog
 import com.cardcontrol.app.ui.dialogs.ExpenseDialog
 import com.cardcontrol.app.ui.dialogs.HolderDialog
 import com.cardcontrol.app.ui.dialogs.PaymentDialog
-import com.cardcontrol.app.ui.theme.*
+import com.cardcontrol.app.ui.theme.CardControlTheme
+import com.cardcontrol.app.ui.theme.CurrencyText
+import com.cardcontrol.app.ui.theme.OverlineText
 import com.cardcontrol.app.util.MoneyUtils
 import com.cardcontrol.app.util.ReportEngine
 import kotlinx.coroutines.flow.collect
@@ -137,13 +150,34 @@ fun MainScreenContent(
     snackbarHostState: SnackbarHostState = remember { SnackbarHostState() }
 ) {
     val context = LocalContext.current
+    val lifecycleOwner = context.findLifecycleOwner()
+    var notificationListenerEnabled by remember(context) {
+        mutableStateOf(
+            NotificationManagerCompat.getEnabledListenerPackages(context).contains(context.packageName)
+        )
+    }
+    DisposableEffect(context, lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationListenerEnabled = NotificationManagerCompat
+                    .getEnabledListenerPackages(context)
+                    .contains(context.packageName)
+            }
+        }
+        lifecycleOwner?.lifecycle?.addObserver(observer)
+        onDispose { lifecycleOwner?.lifecycle?.removeObserver(observer) }
+    }
     var selectedTab by remember { mutableIntStateOf(initialTab) }
+    var showSettingsScreen by rememberSaveable { mutableStateOf(false) }
+    BackHandler(enabled = showSettingsScreen) { showSettingsScreen = false }
+
     var expandedHolderId by remember { mutableStateOf<Long?>(initialExpandedHolderId) }
     var cardBeingEdited by remember { mutableStateOf<CreditCardEntity?>(null) }
     var cardPendingDeletion by remember { mutableStateOf<CreditCardEntity?>(null) }
     var selectedVitrineCardId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     var showExpenseDialog by remember { mutableStateOf(false) }
+    var expenseInitialCardId by remember { mutableStateOf<Long?>(null) }
     var showPaymentDialog by remember { mutableStateOf(false) }
     var showHolderDialog by remember { mutableStateOf(false) }
     var showCardDialog by remember { mutableStateOf(false) }
@@ -152,71 +186,166 @@ fun MainScreenContent(
 
     LaunchedEffect(showSavedMessage) {
         if (showSavedMessage) {
-            snackbarHostState.showSnackbar("Credenciais protegidas no Android Keystore com sucesso!")
+            snackbarHostState.showSnackbar("Configurações de e-mail salvas com sucesso!")
             showSavedMessage = false
         }
     }
 
-    LiquidAmbientBackground {
+    Surface(
+        modifier = Modifier.fillMaxSize(),
+        color = MaterialTheme.colorScheme.background
+    ) {
         Scaffold(
             containerColor = Color.Transparent,
             snackbarHost = { SnackbarHost(snackbarHostState) },
             topBar = {
-                Box(
+                Surface(
+                    color = MaterialTheme.colorScheme.background,
                     modifier = Modifier
                         .fillMaxWidth()
                         .statusBarsPadding()
-                        .padding(horizontal = 16.dp, vertical = 10.dp)
-                        .liquidGlassCard(cornerRadius = 18.dp)
-                        .padding(horizontal = 16.dp, vertical = 12.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Column {
+                    if (showSettingsScreen) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(horizontal = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            IconButton(
+                                onClick = { showSettingsScreen = false },
+                                modifier = Modifier.size(40.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
+                                    contentDescription = "Voltar",
+                                    tint = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
                             Text(
-                                "CardControl",
-                                style = MaterialTheme.typography.titleMedium,
-                                fontWeight = FontWeight.ExtraBold,
-                                color = MaterialTheme.colorScheme.onSurface
+                                text = "Configurações",
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onBackground
                             )
                         }
-                        AnimatedVisibility(visible = selectedTab == 0) {
+                    } else {
+                        val tabTitle = when (selectedTab) {
+                            0 -> "Faturas"
+                            1 -> "Cartões"
+                            else -> "Análises"
+                        }
+                        val tabIcon = when (selectedTab) {
+                            0 -> Icons.AutoMirrored.Filled.ReceiptLong
+                            1 -> Icons.Default.CreditCard
+                            else -> Icons.Default.Insights
+                        }
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp)
+                                .padding(horizontal = 20.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(36.dp)
+                                        .clip(RoundedCornerShape(10.dp))
+                                        .background(MaterialTheme.colorScheme.primaryContainer),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = tabIcon,
+                                        contentDescription = null,
+                                        tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+                                Text(
+                                    text = tabTitle,
+                                    style = MaterialTheme.typography.titleLarge,
+                                    fontWeight = FontWeight.Bold,
+                                    color = MaterialTheme.colorScheme.onBackground
+                                )
+                            }
+
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
                                 horizontalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
-                                IconButton(
-                                    onClick = { onChangeMonth(-1L) },
-                                    modifier = Modifier.size(32.dp)
-                                ) {
-                                    Icon(
-                                        Icons.Default.ChevronLeft,
-                                        contentDescription = "Mês anterior",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(18.dp)
-                                    )
+                                when (selectedTab) {
+                                    0 -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(2.dp)
+                                        ) {
+                                            IconButton(
+                                                onClick = { onChangeMonth(-1L) },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.ChevronLeft,
+                                                    contentDescription = "Mês anterior",
+                                                    tint = MaterialTheme.colorScheme.onSurface,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                            Text(
+                                                "%02d/%d".format(state.selectedMonth, state.selectedYear),
+                                                fontWeight = FontWeight.Bold,
+                                                color = MaterialTheme.colorScheme.onSurface,
+                                                style = MaterialTheme.typography.bodyMedium.copy(
+                                                    fontFeatureSettings = "tnum"
+                                                )
+                                            )
+                                            IconButton(
+                                                onClick = { onChangeMonth(1L) },
+                                                modifier = Modifier.size(36.dp)
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.ChevronRight,
+                                                    contentDescription = "Próximo mês",
+                                                    tint = MaterialTheme.colorScheme.onSurface,
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                    1 -> {
+                                        IconButton(
+                                            onClick = {
+                                                cardBeingEdited = null
+                                                showCardDialog = true
+                                            },
+                                            modifier = Modifier.size(40.dp)
+                                        ) {
+                                            Icon(
+                                                Icons.Default.Add,
+                                                contentDescription = "Adicionar cartão",
+                                                tint = MaterialTheme.colorScheme.primary,
+                                                modifier = Modifier.size(24.dp)
+                                            )
+                                        }
+                                    }
+                                    else -> {}
                                 }
-                                Text(
-                                    "%02d/%d".format(state.selectedMonth, state.selectedYear),
-                                    fontWeight = FontWeight.Bold,
-                                    color = MaterialTheme.colorScheme.onSurface,
-                                    style = MaterialTheme.typography.bodyMedium.copy(
-                                        fontFeatureSettings = "tnum",
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                )
+
                                 IconButton(
-                                    onClick = { onChangeMonth(1L) },
-                                    modifier = Modifier.size(32.dp)
+                                    onClick = { showSettingsScreen = true },
+                                    modifier = Modifier.size(40.dp)
                                 ) {
                                     Icon(
-                                        Icons.Default.ChevronRight,
-                                        contentDescription = "Próximo mês",
-                                        tint = MaterialTheme.colorScheme.onSurface,
-                                        modifier = Modifier.size(18.dp)
+                                        imageVector = Icons.Default.Settings,
+                                        contentDescription = "Configurações",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
@@ -225,85 +354,102 @@ fun MainScreenContent(
                 }
             },
             bottomBar = {
-                val primaryColor = MaterialTheme.colorScheme.primary
-                val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
-                val navItemColors = NavigationBarItemDefaults.colors(
-                    indicatorColor = primaryColor.copy(alpha = 0.15f),
-                    selectedIconColor = primaryColor,
-                    selectedTextColor = primaryColor,
-                    unselectedIconColor = onSurfaceVariant,
-                    unselectedTextColor = onSurfaceVariant
-                )
-                NavigationBar(
-                    containerColor = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                    tonalElevation = 0.dp
-                ) {
-                    NavigationBarItem(
-                        selected = selectedTab == 0,
-                        onClick = { selectedTab = 0 },
-                        icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = "Faturas") },
-                        label = { Text("Faturas") },
-                        colors = navItemColors
+                if (!showSettingsScreen) {
+                    val primaryColor = MaterialTheme.colorScheme.primary
+                    val onSurfaceVariant = MaterialTheme.colorScheme.onSurfaceVariant
+                    val navItemColors = NavigationBarItemDefaults.colors(
+                        indicatorColor = primaryColor.copy(alpha = 0.15f),
+                        selectedIconColor = primaryColor,
+                        selectedTextColor = primaryColor,
+                        unselectedIconColor = onSurfaceVariant,
+                        unselectedTextColor = onSurfaceVariant
                     )
-                    NavigationBarItem(
-                        selected = selectedTab == 1,
-                        onClick = { selectedTab = 1 },
-                        icon = { Icon(Icons.Default.CreditCard, contentDescription = "Cartões") },
-                        label = { Text("Cartões") },
-                        colors = navItemColors
-                    )
-                    NavigationBarItem(
-                        selected = selectedTab == 2,
-                        onClick = { selectedTab = 2 },
-                        icon = { Icon(Icons.Default.Security, contentDescription = "Automação") },
-                        label = { Text("Automação") },
-                        colors = navItemColors
-                    )
+                    NavigationBar(
+                        containerColor = MaterialTheme.colorScheme.surfaceContainer,
+                        tonalElevation = 2.dp
+                    ) {
+                        NavigationBarItem(
+                            selected = selectedTab == 0,
+                            onClick = { selectedTab = 0 },
+                            icon = { Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = "Faturas") },
+                            label = { Text("Faturas") },
+                            colors = navItemColors
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 1,
+                            onClick = { selectedTab = 1 },
+                            icon = { Icon(Icons.Default.CreditCard, contentDescription = "Cartões") },
+                            label = { Text("Cartões") },
+                            colors = navItemColors
+                        )
+                        NavigationBarItem(
+                            selected = selectedTab == 2,
+                            onClick = { selectedTab = 2 },
+                            icon = { Icon(Icons.Default.Insights, contentDescription = "Análises") },
+                            label = { Text("Análises") },
+                            colors = navItemColors
+                        )
+                    }
                 }
             },
             floatingActionButton = {
-                if (selectedTab == 0 && state.cards.isNotEmpty() && state.holders.isNotEmpty()) {
-                    ExtendedFloatingActionButton(
-                        onClick = { showExpenseDialog = true },
-                        containerColor = PrimaryAccent,
-                        contentColor = AppBackground,
-                        icon = { Icon(Icons.Default.Add, contentDescription = null, tint = AppBackground) },
-                        text = { Text("Lançar Compra", fontWeight = FontWeight.Bold, color = AppBackground) }
-                    )
-                } else if (selectedTab == 1) {
+                val hasPurchases = state.holderSummaries.any { it.monthlyInstallments.isNotEmpty() }
+                if (!showSettingsScreen && selectedTab == 0 && state.cards.isNotEmpty() && state.holders.isNotEmpty() && hasPurchases) {
                     ExtendedFloatingActionButton(
                         onClick = {
-                            cardBeingEdited = null
-                            showCardDialog = true
+                            expenseInitialCardId = null
+                            showExpenseDialog = true
                         },
-                        containerColor = PrimaryAccent,
-                        contentColor = AppBackground,
-                        icon = { Icon(Icons.Default.AddCard, contentDescription = null, tint = AppBackground) },
-                        text = { Text("Adicionar cartão", fontWeight = FontWeight.Bold, color = AppBackground) }
+                        containerColor = MaterialTheme.colorScheme.primary,
+                        contentColor = MaterialTheme.colorScheme.onPrimary,
+                        icon = { Icon(Icons.Default.Add, contentDescription = null) },
+                        text = { Text("Nova compra", fontWeight = FontWeight.Bold) }
                     )
                 }
             }
         ) { padding ->
-            Column(modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp)) {
-                when (selectedTab) {
+            if (showSettingsScreen) {
+                SettingsScreenContent(
+                    modifier = Modifier.padding(padding),
+                    notificationListenerEnabled = notificationListenerEnabled,
+                    onOpenNotificationSettings = onOpenNotificationSettings,
+                    themeMode = themeMode,
+                    onThemeModeChange = onThemeModeChange,
+                    initialSmtpEmail = initialSmtpEmail,
+                    initialSmtpPass = initialSmtpPass,
+                    onSaveSmtpCredentials = onSaveSmtpCredentials,
+                    onShowSavedMessage = { showSavedMessage = true },
+                    holders = state.holders,
+                    onAddHolder = { showHolderDialog = true }
+                )
+            } else {
+                Column(modifier = Modifier.padding(padding).fillMaxSize().padding(horizontal = 16.dp)) {
+                    when (selectedTab) {
                     0 -> {
                         val remainingInvoice = (state.totalMonthInvoice - state.totalMonthPaid).coerceAtLeast(0L)
-                        val paidRatio = if (state.totalMonthInvoice > 0L) (state.totalMonthPaid.toFloat() / state.totalMonthInvoice.toFloat()) else 0f
+                        val paidRatio = if (state.totalMonthInvoice > 0L) (state.totalMonthPaid.toFloat() / state.totalMonthInvoice.toFloat()).coerceIn(0f, 1f) else 0f
                         val paidPercent = (paidRatio * 100f).toInt()
 
                         Box(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .liquidGlassCard(cornerRadius = 24.dp, accentTint = PrimaryAccent)
+                                .clip(RoundedCornerShape(24.dp))
+                                .background(MaterialTheme.colorScheme.surfaceContainer)
+                                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(24.dp))
                                 .padding(20.dp)
                         ) {
                             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                OverlineText("Fatura Consolidada do Mês")
+                                Text(
+                                    "Fatura Consolidada do Mês",
+                                    style = MaterialTheme.typography.labelMedium,
+                                    fontWeight = FontWeight.SemiBold,
+                                    color = MaterialTheme.colorScheme.primary
+                                )
                                 CurrencyText(
                                     amountCents = remainingInvoice,
                                     fontSize = 32.sp,
                                     fontWeight = FontWeight.ExtraBold,
-                                    color = TextPrimary
+                                    color = MaterialTheme.colorScheme.onSurface
                                 )
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
@@ -313,15 +459,23 @@ fun MainScreenContent(
                                     Text(
                                         "Bruto: ${ReportEngine.formatCurrency(state.totalMonthInvoice)}",
                                         style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-                                        color = TextSecondary
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     Text(
                                         "Abatido: ${ReportEngine.formatCurrency(state.totalMonthPaid)}",
                                         style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
-                                        color = SemanticSuccess
+                                        color = if (state.totalMonthPaid > 0L) CCTheme.extras.semantics.success else MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                 }
-                                LiquidGlassBar(progress = paidRatio, accentColor = SemanticSuccess)
+                                LinearProgressIndicator(
+                                    progress = { paidRatio },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .height(8.dp)
+                                        .clip(RoundedCornerShape(4.dp)),
+                                    color = CCTheme.extras.semantics.success,
+                                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                )
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -330,13 +484,13 @@ fun MainScreenContent(
                                     Text(
                                         if (state.totalMonthInvoice > 0L) "$paidPercent% quitado" else "Sem fatura pendente",
                                         style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-                                        color = TextSecondary
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant
                                     )
                                     if (state.totalMonthPaid > 0L) {
                                         Text(
                                             "Economia / Saldo positivo",
                                             style = MaterialTheme.typography.labelSmall,
-                                            color = SemanticSuccess
+                                            color = CCTheme.extras.semantics.success
                                         )
                                     }
                                 }
@@ -352,10 +506,12 @@ fun MainScreenContent(
                                 onClick = { showHolderDialog = true },
                                 modifier = Modifier.weight(1f),
                                 shape = RoundedCornerShape(14.dp),
-                                colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                                border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                                colors = ButtonDefaults.outlinedButtonColors(
+                                    contentColor = MaterialTheme.colorScheme.onSurface
+                                ),
+                                border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                             ) {
-                                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = PrimaryAccent)
+                                Icon(Icons.Default.PersonAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
                                 Spacer(Modifier.width(6.dp))
                                 Text("Nova Pessoa", fontWeight = FontWeight.SemiBold)
                             }
@@ -364,10 +520,12 @@ fun MainScreenContent(
                                     onClick = { showPaymentDialog = true },
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(14.dp),
-                                    colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
+                                    colors = ButtonDefaults.outlinedButtonColors(
+                                        contentColor = MaterialTheme.colorScheme.onSurface
+                                    ),
+                                    border = androidx.compose.foundation.BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant)
                                 ) {
-                                    Icon(Icons.Default.Payments, contentDescription = null, tint = SemanticSuccess)
+                                    Icon(Icons.Default.Payments, contentDescription = null, tint = CCTheme.extras.semantics.success)
                                     Spacer(Modifier.width(6.dp))
                                     Text("Abater / Pix", fontWeight = FontWeight.SemiBold)
                                 }
@@ -375,11 +533,13 @@ fun MainScreenContent(
                         }
                         Spacer(Modifier.height(14.dp))
 
-                        if (state.holders.isEmpty() || state.cards.isEmpty()) {
+                        if (state.cards.isEmpty()) {
                             Box(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .liquidGlassCard(cornerRadius = 20.dp, accentTint = PrimaryAccent)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
                                     .padding(22.dp)
                             ) {
                                 Column(
@@ -387,14 +547,85 @@ fun MainScreenContent(
                                     horizontalAlignment = Alignment.CenterHorizontally,
                                     modifier = Modifier.fillMaxWidth()
                                 ) {
-                                    Icon(Icons.Default.CreditCard, contentDescription = null, tint = PrimaryAccent, modifier = Modifier.size(42.dp))
-                                    Text("Primeiros Passos", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                    Icon(Icons.Default.CreditCard, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
+                                    Text("Nenhum cartão cadastrado", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                     Text(
-                                        "Cadastre pelo menos uma Pessoa e um Cartão (na aba Cartões) para começar a lançar compras, controlar sublimites e visualizar as faturas em tempo real.",
+                                        "Cadastre seus cartões na aba Cartões para visualizar faturas e lançar compras.",
                                         style = MaterialTheme.typography.bodySmall,
-                                        color = TextSecondary,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
                                         textAlign = TextAlign.Center
                                     )
+                                    Spacer(Modifier.height(4.dp))
+                                    Button(
+                                        onClick = { selectedTab = 1 },
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("Ir para Cartões")
+                                    }
+                                }
+                            }
+                        } else if (state.holders.isEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                                    .padding(22.dp)
+                            ) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.Default.PersonAdd, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
+                                    Text("Nenhuma pessoa cadastrada", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(
+                                        "Cadastre as pessoas para quem você divide ou organiza os limites dos seus cartões.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Button(
+                                        onClick = { showHolderDialog = true },
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Text("Cadastrar Pessoa")
+                                    }
+                                }
+                            }
+                        } else if (state.holderSummaries.all { it.monthlyInstallments.isEmpty() }) {
+                            Box(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(MaterialTheme.colorScheme.surfaceContainer)
+                                    .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                                    .padding(22.dp)
+                            ) {
+                                Column(
+                                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(Icons.AutoMirrored.Filled.ReceiptLong, contentDescription = null, tint = MaterialTheme.colorScheme.primary, modifier = Modifier.size(42.dp))
+                                    Text("Nenhuma compra registrada neste mês", style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
+                                    Text(
+                                        "Suas compras e parcelas deste período aparecerão aqui.",
+                                        style = MaterialTheme.typography.bodySmall,
+                                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(Modifier.height(4.dp))
+                                    Button(
+                                        onClick = { showExpenseDialog = true },
+                                        shape = RoundedCornerShape(12.dp)
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Spacer(Modifier.width(6.dp))
+                                        Text("Lançar compra")
+                                    }
                                 }
                             }
                         } else {
@@ -412,27 +643,29 @@ fun MainScreenContent(
                                     val isExpanded = expandedHolderId == item.holder.id
                                     val usageRatio = if (item.holder.subLimit > 0L) (item.globalCommitted.toFloat() / item.holder.subLimit.toFloat()) else 0f
                                     val barColor = when {
-                                        usageRatio >= 1f -> SemanticDanger
-                                        usageRatio >= 0.8f -> SemanticWarning
-                                        else -> PrimaryAccent
+                                        usageRatio >= 1f -> MaterialTheme.colorScheme.error
+                                        usageRatio >= 0.8f -> CCTheme.extras.semantics.warning
+                                        else -> MaterialTheme.colorScheme.primary
                                     }
 
                                     Box(
                                         modifier = Modifier
                                             .fillMaxWidth()
-                                            .liquidGlassCard(cornerRadius = 20.dp, accentTint = barColor)
+                                            .clip(RoundedCornerShape(20.dp))
+                                            .background(MaterialTheme.colorScheme.surfaceContainer)
+                                            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
                                             .clickable { expandedHolderId = if (isExpanded) null else item.holder.id }
                                             .padding(16.dp)
                                     ) {
                                         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                                                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                    Text(item.holder.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = TextPrimary)
+                                                    Text(item.holder.name, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.onSurface)
                                                     Row(
                                                         verticalAlignment = Alignment.CenterVertically,
                                                         horizontalArrangement = Arrangement.spacedBy(4.dp)
                                                     ) {
-                                                        Text("A Pagar no Mês: ", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                                        Text("A Pagar no Mês: ", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                         CurrencyText(
                                                             amountCents = item.monthlyNetDue,
                                                             fontSize = 15.sp,
@@ -461,11 +694,11 @@ fun MainScreenContent(
                                                                 globalCommitted = item.globalCommitted
                                                             )
                                                         }
-                                                    }) { Icon(Icons.Default.Share, contentDescription = "Exportar PDF/WhatsApp", tint = PrimaryAccent) }
+                                                    }) { Icon(Icons.Default.Share, contentDescription = "Exportar PDF/WhatsApp", tint = MaterialTheme.colorScheme.primary) }
                                                     Icon(
                                                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                                                         contentDescription = null,
-                                                        tint = TextSecondary,
+                                                        tint = MaterialTheme.colorScheme.onSurfaceVariant,
                                                         modifier = Modifier.align(Alignment.CenterVertically)
                                                     )
                                                 }
@@ -474,17 +707,25 @@ fun MainScreenContent(
                                             if (item.holder.subLimit > 0L) {
                                                 val percentSubLimit = (usageRatio * 100f).toInt()
                                                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                                                    Text("Sublimite: $percentSubLimit% usado", style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"), color = TextSecondary)
-                                                    Text("Teto: ${ReportEngine.formatCurrency(item.holder.subLimit)}", style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"), color = TextSecondary)
+                                                    Text("Sublimite: $percentSubLimit% usado", style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                                                    Text("Teto: ${ReportEngine.formatCurrency(item.holder.subLimit)}", style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"), color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                 }
-                                                LiquidGlassBar(progress = usageRatio, accentColor = barColor)
+                                                LinearProgressIndicator(
+                                                    progress = { usageRatio.coerceIn(0f, 1f) },
+                                                    modifier = Modifier
+                                                        .fillMaxWidth()
+                                                        .height(6.dp)
+                                                        .clip(RoundedCornerShape(3.dp)),
+                                                    color = barColor,
+                                                    trackColor = MaterialTheme.colorScheme.surfaceContainerHighest
+                                                )
                                             }
 
                                             AnimatedVisibility(visible = isExpanded) {
                                                 Column(modifier = Modifier.padding(top = 8.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                                                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                                                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
                                                     if (item.monthlyInstallments.isEmpty()) {
-                                                        Text("Nenhuma parcela neste mês.", style = MaterialTheme.typography.bodySmall, color = TextSecondary)
+                                                        Text("Nenhuma parcela neste mês.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                                                     } else {
                                                         item.monthlyInstallments.forEach { inst ->
                                                             Row(
@@ -505,7 +746,7 @@ fun MainScreenContent(
                                                                             Icon(
                                                                                 Icons.Default.Repeat,
                                                                                 contentDescription = "Confirmar como Recorrente",
-                                                                                tint = PrimaryAccent.copy(alpha = 0.75f),
+                                                                                tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.75f),
                                                                                 modifier = Modifier.size(16.dp)
                                                                             )
                                                                         }
@@ -513,16 +754,16 @@ fun MainScreenContent(
                                                                         Text(
                                                                             "Parcelamento",
                                                                             style = MaterialTheme.typography.labelSmall,
-                                                                            color = TextSecondary
+                                                                            color = MaterialTheme.colorScheme.onSurfaceVariant
                                                                         )
                                                                     }
-                                                                    Text("• ${inst.merchantSnapshot} (${inst.installmentNumber}/${inst.totalInstallments})", style = MaterialTheme.typography.bodySmall, color = TextPrimary)
+                                                                    Text("• ${inst.merchantSnapshot} (${inst.installmentNumber}/${inst.totalInstallments})", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurface)
                                                                 }
                                                                 CurrencyText(
                                                                     amountCents = inst.amount,
                                                                     fontSize = 14.sp,
                                                                     fontWeight = FontWeight.Bold,
-                                                                    color = PrimaryAccent
+                                                                    color = MaterialTheme.colorScheme.primary
                                                                 )
                                                             }
                                                         }
@@ -545,6 +786,7 @@ fun MainScreenContent(
                         }
                         CardsScreen(
                             cards = uiCards,
+                            isDark = resolveDark(themeMode, isSystemInDarkTheme()),
                             selectedCardId = selectedVitrineCardId ?: uiCards.firstOrNull()?.id,
                             onCardSelected = { selectedVitrineCardId = it },
                             onAddCard = {
@@ -558,7 +800,8 @@ fun MainScreenContent(
                             onDeleteCard = { uiCard ->
                                 cardPendingDeletion = state.cards.firstOrNull { it.id == uiCard.id }
                             },
-                            onAddExpenseForCard = {
+                            onAddExpenseForCard = { card ->
+                                expenseInitialCardId = card.id
                                 showExpenseDialog = true
                             },
                             onSeeMore = {
@@ -568,146 +811,35 @@ fun MainScreenContent(
                     }
 
                     2 -> {
-                        var email by remember { mutableStateOf(initialSmtpEmail) }
-                        var pass by remember { mutableStateOf(initialSmtpPass) }
-                        var showPassword by remember { mutableStateOf(false) }
-
-                        Column(
-                            modifier = Modifier.fillMaxSize().verticalScroll(rememberScrollState()),
-                            verticalArrangement = Arrangement.spacedBy(14.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(top = 4.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    "Automação & Ajustes",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    "Captura em tempo real, aparência e cofre",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
-                                )
-                            }
-
-                            AppearanceSection(
-                                currentMode = themeMode,
-                                onModeChange = onThemeModeChange
-                            )
-
-                            Box(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .liquidGlassCard(cornerRadius = 22.dp, accentTint = SecondaryAccent)
-                                    .padding(20.dp)
-                            ) {
-                                Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                                    Text(
-                                        "Captura em Tempo Real & Cofre Keystore",
-                                        style = MaterialTheme.typography.titleMedium,
-                                        fontWeight = FontWeight.Bold,
-                                        color = TextPrimary
-                                    )
-                                    Text(
-                                        "O CardControl escuta compras emitidas pelos apps bancários e pode enviar comprovantes automáticos por e-mail com o saldo restante do titular.",
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = TextSecondary
-                                    )
-                                    Button(
-                                        onClick = onOpenNotificationSettings,
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(14.dp),
-                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = SecondaryAccent,
-                                            contentColor = Color.White
-                                        )
-                                    ) {
-                                        Icon(Icons.Default.NotificationsActive, contentDescription = null, tint = Color.White)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Conceder Permissão às Notificações", color = Color.White, fontWeight = FontWeight.Bold)
-                                    }
-
-                                    HorizontalDivider(color = Color.White.copy(alpha = 0.12f), modifier = Modifier.padding(vertical = 4.dp))
-
-                                    OverlineText("Configuração de Alerta por E-mail (Opcional)", color = PrimaryAccent)
-
-                                    GlassTextField(
-                                        value = email,
-                                        onValueChange = { email = it },
-                                        label = "Gmail Remetente",
-                                        placeholder = "seuemail@gmail.com",
-                                        supportingText = "Envio automático e seguro via SMTP TLS",
-                                        leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = PrimaryAccent) },
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
-                                    )
-
-                                    GlassTextField(
-                                        value = pass,
-                                        onValueChange = { pass = it },
-                                        label = "Senha de App Google",
-                                        placeholder = "xxxx xxxx xxxx xxxx",
-                                        supportingText = "Código de 16 caracteres gerado na sua Conta Google",
-                                        leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = PrimaryAccent) },
-                                        trailingIcon = {
-                                            IconButton(onClick = { showPassword = !showPassword }) {
-                                                Icon(
-                                                    imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                                    contentDescription = if (showPassword) "Ocultar senha" else "Ver senha",
-                                                    tint = TextSecondary
-                                                )
-                                            }
-                                        },
-                                        visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
-                                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
-                                    )
-
-                                    Button(
-                                        onClick = {
-                                            onSaveSmtpCredentials?.invoke(email, pass)
-                                            showSavedMessage = true
-                                        },
-                                        modifier = Modifier.fillMaxWidth(),
-                                        shape = RoundedCornerShape(14.dp),
-                                        contentPadding = PaddingValues(horizontal = 20.dp, vertical = 14.dp),
-                                        colors = ButtonDefaults.buttonColors(
-                                            containerColor = PrimaryAccent,
-                                            contentColor = AppBackground
-                                        )
-                                    ) {
-                                        Icon(Icons.Default.Lock, contentDescription = null, tint = AppBackground)
-                                        Spacer(Modifier.width(8.dp))
-                                        Text("Criptografar no Android Keystore", color = AppBackground, fontWeight = FontWeight.ExtraBold)
-                                    }
-                                }
-                            }
-
-                            Spacer(Modifier.height(8.dp))
-                            Text(
-                                "CardControl • 100% no aparelho",
-                                style = MaterialTheme.typography.labelSmall,
-                                color = TextMuted,
-                                modifier = Modifier.fillMaxWidth().padding(bottom = 96.dp),
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                        AnalyticsScreen(
+                            installments = if (state.allInstallments.isNotEmpty()) state.allInstallments else state.holderSummaries.flatMap { it.monthlyInstallments },
+                            payments = state.allPayments,
+                            cards = state.cards,
+                            holders = state.holders,
+                            recurringCharges = state.recurringCharges,
+                            initialCardId = selectedVitrineCardId,
+                            onCardFilterChange = { selectedVitrineCardId = it }
+                        )
                     }
                 }
             }
         }
+    }
     }
 
     if (showExpenseDialog && state.cards.isNotEmpty() && state.holders.isNotEmpty()) {
         ExpenseDialog(
             cards = state.cards,
             holders = state.holders,
-            onDismissRequest = { showExpenseDialog = false },
+            initialCardId = expenseInitialCardId,
+            onDismissRequest = {
+                showExpenseDialog = false
+                expenseInitialCardId = null
+            },
             onConfirm = { cardId, holderId, merchant, amountCents, parcels ->
                 onAddExpense(cardId, holderId, merchant, amountCents, parcels)
                 showExpenseDialog = false
+                expenseInitialCardId = null
             }
         )
     }
@@ -767,6 +899,275 @@ fun MainScreenContent(
             }
         )
     }
+}
+
+@Composable
+fun SettingsScreenContent(
+    modifier: Modifier = Modifier,
+    notificationListenerEnabled: Boolean,
+    onOpenNotificationSettings: () -> Unit,
+    themeMode: ThemeMode,
+    onThemeModeChange: (ThemeMode) -> Unit,
+    initialSmtpEmail: String,
+    initialSmtpPass: String,
+    onSaveSmtpCredentials: ((String, String) -> Unit)?,
+    onShowSavedMessage: () -> Unit,
+    holders: List<HolderEntity>,
+    onAddHolder: () -> Unit
+) {
+    var email by remember { mutableStateOf(initialSmtpEmail) }
+    var pass by remember { mutableStateOf(initialSmtpPass) }
+    var showPassword by remember { mutableStateOf(false) }
+    var isSmtpExpanded by rememberSaveable { mutableStateOf(false) }
+
+    Column(
+        modifier = modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(horizontal = 16.dp),
+        verticalArrangement = Arrangement.spacedBy(14.dp)
+    ) {
+        Spacer(Modifier.height(4.dp))
+
+        // 1. Grupo: Captura automática
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                .padding(18.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Icon(
+                        imageVector = Icons.Default.NotificationsActive,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                    Spacer(Modifier.width(10.dp))
+                    Column {
+                        Text(
+                            "Captura de notificações",
+                            style = MaterialTheme.typography.titleMedium,
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Text(
+                            "Escuta compras emitidas pelos aplicativos dos seus bancos",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Surface(
+                            shape = CircleShape,
+                            color = if (notificationListenerEnabled) {
+                                CCTheme.extras.semantics.successContainer
+                            } else {
+                                CCTheme.extras.semantics.warningContainer
+                            }
+                        ) {
+                            Text(
+                                text = if (notificationListenerEnabled) "Permissão ativa" else "Permissão pendente",
+                                modifier = Modifier.padding(horizontal = 10.dp, vertical = 5.dp),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold,
+                                color = if (notificationListenerEnabled) {
+                                    CCTheme.extras.semantics.onSuccessContainer
+                                } else {
+                                    CCTheme.extras.semantics.onWarningContainer
+                                }
+                            )
+                        }
+                    }
+                }
+
+                Button(
+                    onClick = onOpenNotificationSettings,
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp)
+                ) {
+                    Icon(Icons.Default.Tune, contentDescription = null)
+                    Spacer(Modifier.width(8.dp))
+                    Text("Gerenciar permissão de notificações", fontWeight = FontWeight.SemiBold)
+                }
+            }
+        }
+
+        // 2. Grupo: Aparência
+        AppearanceSection(
+            currentMode = themeMode,
+            onModeChange = onThemeModeChange
+        )
+
+        // 3. Grupo: Titulares / Pessoas
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                .padding(18.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f, fill = false)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Group,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "Pessoas cadastradas",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "${holders.size} pessoa(s) para rateio de faturas",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    OutlinedButton(
+                        onClick = onAddHolder,
+                        shape = RoundedCornerShape(10.dp)
+                    ) {
+                        Icon(Icons.Default.PersonAdd, contentDescription = null, modifier = Modifier.size(16.dp))
+                        Spacer(Modifier.width(4.dp))
+                        Text("Adicionar", style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
+        }
+
+        // 4. Grupo: Envio por e-mail (recolhível)
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(20.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainer)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))
+                .padding(18.dp)
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { isSmtpExpanded = !isSmtpExpanded },
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(
+                            imageVector = Icons.Default.Email,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                        Spacer(Modifier.width(10.dp))
+                        Column {
+                            Text(
+                                "Envio por e-mail",
+                                style = MaterialTheme.typography.titleMedium,
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.onSurface
+                            )
+                            Text(
+                                "Envio opcional de comprovantes via Gmail SMTP",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
+                    Icon(
+                        imageVector = if (isSmtpExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+
+                AnimatedVisibility(visible = isSmtpExpanded) {
+                    Column(
+                        modifier = Modifier.padding(top = 8.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f))
+
+                        GlassTextField(
+                            value = email,
+                            onValueChange = { email = it },
+                            label = "Gmail Remetente",
+                            placeholder = "seuemail@gmail.com",
+                            supportingText = "Envio automático e seguro via SMTP TLS",
+                            leadingIcon = { Icon(Icons.Default.Email, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
+                        )
+
+                        GlassTextField(
+                            value = pass,
+                            onValueChange = { pass = it },
+                            label = "Senha de App Google",
+                            placeholder = "xxxx xxxx xxxx xxxx",
+                            supportingText = "Código de 16 caracteres gerado na sua Conta Google",
+                            leadingIcon = { Icon(Icons.Default.Key, contentDescription = null, tint = MaterialTheme.colorScheme.primary) },
+                            trailingIcon = {
+                                IconButton(onClick = { showPassword = !showPassword }) {
+                                    Icon(
+                                        imageVector = if (showPassword) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                        contentDescription = if (showPassword) "Ocultar senha" else "Ver senha",
+                                        tint = MaterialTheme.colorScheme.onSurfaceVariant
+                                    )
+                                }
+                            },
+                            visualTransformation = if (showPassword) VisualTransformation.None else PasswordVisualTransformation(),
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done)
+                        )
+
+                        Button(
+                            onClick = {
+                                onSaveSmtpCredentials?.invoke(email, pass)
+                                onShowSavedMessage()
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(Icons.Default.Lock, contentDescription = null)
+                            Spacer(Modifier.width(8.dp))
+                            Text("Salvar configurações", fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(Modifier.height(8.dp))
+        Text(
+            "CardControl • 100% no aparelho",
+            style = MaterialTheme.typography.labelSmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.7f),
+            modifier = Modifier.fillMaxWidth().padding(bottom = 96.dp),
+            textAlign = TextAlign.Center
+        )
+    }
+}
+
+private tailrec fun Context.findLifecycleOwner(): LifecycleOwner? = when (this) {
+    is LifecycleOwner -> this
+    is ContextWrapper -> baseContext.findLifecycleOwner()
+    else -> null
 }
 
 // ==========================================
@@ -1017,7 +1418,7 @@ private fun GlassTextFieldPreview() {
                 onValueChange = {},
                 label = "Estabelecimento",
                 placeholder = "Ex: Supermercado",
-                leadingIcon = { Icon(Icons.Default.Storefront, contentDescription = null, tint = PrimaryAccent) }
+                leadingIcon = { Icon(Icons.Default.Storefront, contentDescription = null, tint = MaterialTheme.colorScheme.primary) }
             )
         }
     }

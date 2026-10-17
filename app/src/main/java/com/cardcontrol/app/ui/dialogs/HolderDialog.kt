@@ -18,6 +18,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -33,15 +34,8 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.cardcontrol.app.util.MoneyUtils
 import com.cardcontrol.app.ui.components.GlassTextField
-import com.cardcontrol.app.ui.theme.AppBackground
-import com.cardcontrol.app.ui.theme.AppBackgroundTop
-import com.cardcontrol.app.ui.theme.GlassBorderTopLeft
-import com.cardcontrol.app.ui.theme.PrimaryAccent
-import com.cardcontrol.app.ui.theme.SecondaryAccent
-import com.cardcontrol.app.ui.theme.SemanticSuccess
-import com.cardcontrol.app.ui.theme.SemanticWarning
-import com.cardcontrol.app.ui.theme.TextPrimary
-import com.cardcontrol.app.ui.theme.TextSecondary
+import com.cardcontrol.app.ui.designsystem.CCTheme
+import com.cardcontrol.app.ui.designsystem.CcShapes
 
 /**
  * Diálogo modal para cadastro de novo titular ou dependente.
@@ -61,13 +55,13 @@ fun HolderDialog(
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        containerColor = AppBackgroundTop,
-        titleContentColor = TextPrimary,
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        shape = CcShapes.dialog,
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CcShapes.dialog),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.PersonAdd, null, tint = PrimaryAccent)
+                Icon(Icons.Default.PersonAdd, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Text("Novo Titular / Dependente", fontWeight = FontWeight.Bold)
             }
@@ -79,7 +73,7 @@ fun HolderDialog(
                     onValueChange = { name = it },
                     label = "Nome Completo",
                     placeholder = "Ex: Carlos Silva",
-                    leadingIcon = { Icon(Icons.Default.Person, null, tint = PrimaryAccent) },
+                    leadingIcon = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
                 GlassTextField(
@@ -87,7 +81,7 @@ fun HolderDialog(
                     onValueChange = { whats = it },
                     label = "WhatsApp com DDD",
                     placeholder = "Ex: 5511999998888",
-                    leadingIcon = { Icon(Icons.Default.Phone, null, tint = SemanticSuccess) },
+                    leadingIcon = { Icon(Icons.Default.Phone, null, tint = CCTheme.extras.semantics.success) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
                 )
                 GlassTextField(
@@ -95,7 +89,7 @@ fun HolderDialog(
                     onValueChange = { email = it },
                     label = "E-mail para Alertas Instantâneos",
                     placeholder = "carlos@gmail.com",
-                    leadingIcon = { Icon(Icons.Default.Email, null, tint = SecondaryAccent) },
+                    leadingIcon = { Icon(Icons.Default.Email, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
                 )
                 GlassTextField(
@@ -103,14 +97,14 @@ fun HolderDialog(
                     onValueChange = { subLimit = it },
                     label = "Sublimite Mensal (R$)",
                     placeholder = "0,00 (0 para sem teto)",
-                    leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, null, tint = SemanticWarning) },
+                    leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, null, tint = CCTheme.extras.semantics.warning) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done)
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismissRequest) {
-                Text("Cancelar", color = TextSecondary)
+                Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
@@ -121,10 +115,13 @@ fun HolderDialog(
                         onConfirm(name.trim(), whats.trim(), email.trim(), subLimitCents)
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent, contentColor = AppBackground),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Salvar", color = AppBackground, fontWeight = FontWeight.Bold)
+                Text("Salvar", fontWeight = FontWeight.Bold)
             }
         }
     )

@@ -2,7 +2,10 @@ package com.cardcontrol.app
 
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import com.cardcontrol.app.data.local.SupportedBank
+import com.cardcontrol.app.ui.cards.BankCardVisuals
 import com.cardcontrol.app.ui.cards.CardPaletteResolver
+import com.cardcontrol.app.ui.cards.CardUi
 import com.cardcontrol.app.ui.cards.CcCardPresets
 import com.cardcontrol.app.ui.cards.computeBankMonogram
 import com.cardcontrol.app.ui.designsystem.CcExtrasDark
@@ -12,6 +15,7 @@ import com.cardcontrol.app.ui.designsystem.CcLightPetroleo
 import com.cardcontrol.app.ui.designsystem.ThemeMode
 import com.cardcontrol.app.ui.designsystem.resolveDark
 import com.cardcontrol.app.ui.designsystem.resolveScheme
+import com.cardcontrol.app.themeModeFromPreference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -26,6 +30,14 @@ import kotlin.math.pow
  * Execução 100% determinística em JVM sem relógio real e sem emulador.
  */
 class VitrineThemeAndContrastTest {
+
+    @Test
+    fun themeModeFromPreference_restoresSavedValueAndDefaultsSafely() {
+        assertEquals(ThemeMode.SYSTEM, themeModeFromPreference(null))
+        assertEquals(ThemeMode.LIGHT, themeModeFromPreference("LIGHT"))
+        assertEquals(ThemeMode.DARK, themeModeFromPreference("DARK"))
+        assertEquals(ThemeMode.SYSTEM, themeModeFromPreference("invalid"))
+    }
 
     // --- 1. Resolução Pura de Tema (D2.1 e E1) ---
 
@@ -236,5 +248,111 @@ class VitrineThemeAndContrastTest {
             val darkRatio = contrastRatio(CcGrafiteDark.onSurface, darkTint)
             assertTrue("Escuro palco ${preset.name} ratio $darkRatio", darkRatio >= 4.5)
         }
+    }
+
+    // --- 4. Testes de Especificação Visual de Cartão 3D e Modelos por Banco (TASK-018) ---
+
+    @Test
+    fun testBankCardVisuals_allSupportedBanksResolvedDeterministically() {
+        // Todo SupportedBank possui um modelo visual único e não-nulo
+        for (bank in SupportedBank.entries) {
+            val visual = BankCardVisuals.resolve(bank)
+            assertEquals("Banco deve corresponder", bank, visual.bank)
+            assertTrue("brandLabel não deve estar em branco", visual.brandLabel.isNotBlank())
+        }
+
+        // Resolução por bankId nulo ou desconhecido retorna Fallback seguro
+        val fallbackNull = BankCardVisuals.resolveByBankId(null)
+        assertEquals(SupportedBank.OTHER, fallbackNull.bank)
+
+        val fallbackUnknown = BankCardVisuals.resolveByBankId("banco_inexistente_xyz")
+        assertEquals(SupportedBank.OTHER, fallbackUnknown.bank)
+    }
+
+    @Test
+    fun testBankCardVisuals_wcagContrastAllBanksAgainstWhite() {
+        val white = Color.White
+
+        for (bank in SupportedBank.entries) {
+            val visual = BankCardVisuals.resolve(bank)
+
+            // Frente: startColor contra texto branco deve ter contraste >= 4.5:1 (WCAG AA)
+            val frontRatio = contrastRatio(white, visual.startColor)
+            assertTrue(
+                "Banco ${bank.displayName} (${visual.brandLabel}) frente contraste insuficiente: $frontRatio",
+                frontRatio >= 4.5
+            )
+
+            // Verso: backStart contra texto branco deve ter contraste >= 4.5:1
+            val backRatio = contrastRatio(white, visual.backStart)
+            assertTrue(
+                "Banco ${bank.displayName} (${visual.brandLabel}) verso contraste insuficiente: $backRatio",
+                backRatio >= 4.5
+            )
+        }
+    }
+
+    @Test
+    fun testBankCardVisuals_emvChipAttributes() {
+        // Inter, Nubank, C6, Bradesco, Caixa, PicPay, Mercado Pago usam acabamento prata
+        assertFalse("Inter deve ter chip prata", BankCardVisuals.Inter.isChipGold)
+        assertFalse("Nubank deve ter chip prata", BankCardVisuals.Nubank.isChipGold)
+        assertFalse("C6 deve ter chip prata", BankCardVisuals.C6.isChipGold)
+        assertFalse("Bradesco deve ter chip prata", BankCardVisuals.Bradesco.isChipGold)
+        assertFalse("Caixa deve ter chip prata", BankCardVisuals.Caixa.isChipGold)
+        assertFalse("PicPay deve ter chip prata", BankCardVisuals.PicPay.isChipGold)
+        assertFalse("Mercado Pago deve ter chip prata", BankCardVisuals.MercadoPago.isChipGold)
+
+        // Itaú, Santander e Fallback usam acabamento ouro
+        assertTrue("Itaú deve ter chip ouro", BankCardVisuals.Itau.isChipGold)
+        assertTrue("Santander deve ter chip ouro", BankCardVisuals.Santander.isChipGold)
+        assertTrue("Fallback deve ter chip ouro", BankCardVisuals.Fallback.isChipGold)
+    }
+
+    @Test
+    fun testCardUi_maskedNumber_neverExposesFullPanOrCvv() {
+        val cardWithDigits = CardUi(
+            id = 1L,
+            bankId = "inter",
+            bankName = "Banco Inter",
+            lastFourDigits = "1234"
+        )
+        assertEquals("•••• 1234", cardWithDigits.maskedNumber)
+
+        val cardWithoutDigits = CardUi(
+            id = 2L,
+            bankId = "nubank",
+            bankName = "Nubank",
+            lastFourDigits = ""
+        )
+        assertEquals("", cardWithoutDigits.maskedNumber)
+    }
+
+    @Test
+    fun testAdaptiveIcon_colorTokensAndSafeZone() {
+        val bgFile = listOf(
+            java.io.File("src/main/res/drawable/ic_launcher_background.xml"),
+            java.io.File("app/src/main/res/drawable/ic_launcher_background.xml")
+        ).firstOrNull { it.exists() }
+        val fgFile = listOf(
+            java.io.File("src/main/res/drawable/ic_launcher_foreground.xml"),
+            java.io.File("app/src/main/res/drawable/ic_launcher_foreground.xml")
+        ).firstOrNull { it.exists() }
+
+        assertTrue("Background XML deve existir", bgFile != null && bgFile.exists())
+        assertTrue("Foreground XML deve existir", fgFile != null && fgFile.exists())
+
+        val bgContent = bgFile!!.readText()
+        val fgContent = fgFile!!.readText()
+
+        // Verifica viewport 108x108
+        assertTrue("Background deve ter viewport 108", bgContent.contains("viewportWidth=\"108\""))
+        assertTrue("Foreground deve ter viewport 108", fgContent.contains("viewportWidth=\"108\""))
+
+        // Verifica tokens Petróleo Vitrine (#00383B / #004E52 / #00181A)
+        assertTrue("Background deve conter tom Petróleo", bgContent.contains("#00383B") || bgContent.contains("#004E52"))
+
+        // Verifica tokens Cobre Vitrine (#C76A2B / #F2A365) no chip/grafismo do foreground
+        assertTrue("Foreground deve conter chip Cobre", fgContent.contains("#F2A365") || fgContent.contains("#C76A2B"))
     }
 }

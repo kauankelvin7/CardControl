@@ -59,7 +59,8 @@ import com.cardcontrol.app.ui.designsystem.CcType
 import com.cardcontrol.app.ui.designsystem.LocalCcExtras
 
 /**
- * Cabeçalho contextual do cartão selecionado com menu ⋮ (C6).
+ * Cabeçalho contextual do cartão selecionado com menu ⋮ (C6 e Seção 3.2).
+ * Apresenta dados complementares (titular, status) sem redundância com o que já está na frente do cartão.
  */
 @Composable
 fun CardContextualHeader(
@@ -85,40 +86,34 @@ fun CardContextualHeader(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp)
             ) {
+                val headerTitle = if (!currentCard.holderName.isNullOrBlank()) {
+                    "Titular: ${currentCard.holderName}"
+                } else {
+                    "Cartão ativo"
+                }
                 Text(
-                    text = currentCard.bankName,
-                    style = CcType.screenHeader,
-                    color = MaterialTheme.colorScheme.onBackground,
+                    text = headerTitle,
+                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                val subline = buildString {
-                    currentCard.holderName?.let { append(it) }
-                    if (currentCard.lastFourDigits.isNotBlank()) {
-                        if (isNotEmpty()) append(" · ")
-                        append("final ${currentCard.lastFourDigits}")
-                    }
-                }
-                if (subline.isNotBlank()) {
-                    Text(
-                        text = subline,
-                        style = CcType.screenSub,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
+                Text(
+                    text = "Limite: ${com.cardcontrol.app.util.MoneyUtils.formatCents(currentCard.totalLimit)} · Fecha dia ${currentCard.closingDay}",
+                    style = MaterialTheme.typography.bodySmall.copy(fontFeatureSettings = "tnum"),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
 
             Box {
                 IconButton(
                     onClick = { menuExpanded = true },
-                    modifier = Modifier.size(48.dp)
+                    modifier = Modifier.size(44.dp)
                 ) {
                     Icon(
                         imageVector = Icons.Default.MoreVert,
-                        contentDescription = "Mais opções do cartão ${currentCard.bankName}",
-                        tint = MaterialTheme.colorScheme.onSurface
+                        contentDescription = "Mais opções do cartão",
+                        tint = MaterialTheme.colorScheme.onSurfaceVariant
                     )
                 }
 
@@ -162,7 +157,84 @@ fun CardContextualHeader(
 }
 
 /**
- * Linha de Ações Contextuais Reais vinculadas ao ID estável do cartão selecionado (C7).
+ * Duas Ações Primárias Visuais Equilibradas (Seção 3.2):
+ * "Lançar compra" e "Ver faturas".
+ * Elimina os três blocos gigantes anteriores e a duplicidade com botões adicionais.
+ */
+@Composable
+fun CardPrimaryActions(
+    card: CardUi,
+    onAddExpense: () -> Unit,
+    onSeeInvoices: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Ação 1: Lançar compra (destaque principal)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(52.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.primaryContainer)
+                .clickable(role = Role.Button, onClick = onAddExpense)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Filled.ReceiptLong,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Lançar compra",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.Bold),
+                    color = MaterialTheme.colorScheme.onPrimaryContainer
+                )
+            }
+        }
+
+        // Ação 2: Ver faturas (ação secundária contextual)
+        Box(
+            modifier = Modifier
+                .weight(1f)
+                .height(52.dp)
+                .clip(RoundedCornerShape(16.dp))
+                .background(MaterialTheme.colorScheme.surfaceContainerHigh)
+                .clickable(role = Role.Button, onClick = onSeeInvoices)
+                .padding(horizontal = 16.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Default.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurface,
+                    modifier = Modifier.size(20.dp)
+                )
+                Text(
+                    text = "Ver faturas",
+                    style = MaterialTheme.typography.labelLarge.copy(fontWeight = FontWeight.SemiBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Wrapper de retrocompatibilidade para CardActionsRow
  */
 @Composable
 fun CardActionsRow(
@@ -172,34 +244,12 @@ fun CardActionsRow(
     onDelete: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    Row(
-        modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceEvenly,
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        ActionButton(
-            label = "Lançar compra",
-            icon = Icons.AutoMirrored.Filled.ReceiptLong,
-            isPrimary = true,
-            onClick = onAddExpense,
-            contentDescription = "Lançar compra no cartão ${card.bankName}"
-        )
-        ActionButton(
-            label = "Editar",
-            icon = Icons.Default.Edit,
-            isPrimary = false,
-            onClick = onEdit,
-            contentDescription = "Editar dados do cartão ${card.bankName}"
-        )
-        ActionButton(
-            label = "Excluir",
-            icon = Icons.Default.Delete,
-            isPrimary = false,
-            isDestructive = true,
-            onClick = onDelete,
-            contentDescription = "Excluir cartão ${card.bankName}"
-        )
-    }
+    CardPrimaryActions(
+        card = card,
+        onAddExpense = onAddExpense,
+        onSeeInvoices = onAddExpense,
+        modifier = modifier
+    )
 }
 
 @Composable

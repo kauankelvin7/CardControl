@@ -4,51 +4,84 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    
-    <!-- Cartão Principal com bordas arredondadas -->
-    <path
-        android:fillColor="#0D192E"
-        android:strokeColor="#38BDF8"
-        android:strokeWidth="2.5"
-        android:strokeLineJoin="round"
-        android:pathData="M32,38 h44 c3.31,0 6,2.69 6,6 v26 c0,3.31 -2.69,6 -6,6 h-44 c-3.31,0 -6,-2.69 -6,-6 v-26 c0,-3.31 2.69,-6 6,-6 z" />
 
-    <!-- Tarja magnética / Detalhe de topo -->
+    <!-- Cartão Posterior em Perspectiva (Carteira 3D) -->
     <path
-        android:fillColor="#1E293B"
-        android:pathData="M26,45 h56 v4 h-56 z" />
-
-    <!-- Chip EMV inteligente dourado/ciano -->
-    <path
-        android:fillColor="#38BDF8"
-        android:pathData="M33,54 h8 c0.55,0 1,0.45 1,1 v6 c0,0.55 -0.45,1 -1,1 h-8 c-0.55,0 -1,-0.45 -1,-1 v-6 c0,-0.55 0.45,-1 1,-1 z" />
-
-    <!-- Linhas de circuito do chip -->
-    <path
-        android:strokeColor="#070A12"
-        android:strokeWidth="0.8"
-        android:pathData="M37,54 v8 M32,58 h10" />
-
-    <!-- Ondas de aproximação (Contactless NFC) -->
-    <path
-        android:strokeColor="#34D399"
+        android:fillColor="#004E52"
+        android:strokeColor="#006E74"
         android:strokeWidth="1.5"
-        android:strokeLineCap="round"
-        android:pathData="M48,56 a4,4 0 0,1 0,6 M52,53 a8,8 0 0,1 0,12" />
+        android:strokeLineJoin="round"
+        android:pathData="M42,34 h32 a4,4 0 0,1 4,4 v16 a4,4 0 0,1 -4,4 h-32 a4,4 0 0,1 -4,-4 v-16 a4,4 0 0,1 4,-4 z" />
 
-    <!-- Escudo de segurança no canto inferior direito -->
+    <!-- Tarja magnética sutil no cartão posterior -->
     <path
-        android:fillColor="#6366F1"
-        android:strokeColor="#38BDF8"
+        android:fillColor="#003135"
+        android:pathData="M38,39 h40 v3.5 h-40 z" />
+
+    <!-- Cartão Principal Frontal com acabamento vidro e tom Petróleo -->
+    <path
+        android:fillColor="#0D2024"
+        android:strokeColor="#2DD4BF"
+        android:strokeWidth="1.8"
+        android:strokeLineJoin="round"
+        android:pathData="M32,44 h36 a4,4 0 0,1 4,4 v20 a4,4 0 0,1 -4,4 h-36 a4,4 0 0,1 -4,-4 v-20 a4,4 0 0,1 4,-4 z" />
+
+    <!-- Chip EMV em tom Cobre Vitrine -->
+    <path
+        android:fillColor="#F2A365"
+        android:strokeColor="#C76A2B"
+        android:strokeWidth="1.0"
+        android:strokeLineJoin="round"
+        android:pathData="M35.5,52 h6 a1.5,1.5 0 0,1 1.5,1.5 v6 a1.5,1.5 0 0,1 -1.5,1.5 h-6 a1.5,1.5 0 0,1 -1.5,-1.5 v-6 a1.5,1.5 0 0,1 1.5,-1.5 z" />
+
+    <!-- Trilhas internas do chip EMV -->
+    <path
+        android:strokeColor="#8A3D0B"
+        android:strokeWidth="0.6"
+        android:pathData="M38.5,52 v9 M34,56.5 h9" />
+
+    <!-- Ondas Contactless NFC -->
+    <path
+        android:strokeColor="#C76A2B"
         android:strokeWidth="1.2"
-        android:pathData="M67,58 l6,-2.5 l6,2.5 v4 c0,4 -2.5,7 -6,9 c-3.5,-2 -6,-5 -6,-9 z" />
-
-    <!-- Checkmark dentro do escudo -->
+        android:strokeLineCap="round"
+        android:pathData="M46.5,54.5 a2.5,2.5 0 0,1 0,4" />
     <path
-        android:strokeColor="#FFFFFF"
-        android:strokeWidth="1.5"
+        android:strokeColor="#F2A365"
+        android:strokeWidth="1.2"
+        android:strokeLineCap="round"
+        android:pathData="M49.5,53 a5,5 0 0,1 0,7" />
+
+    <!-- Barras de Crescimento Financeiro (Análises) -->
+    <!-- Barra 1 (Base) -->
+    <path
+        android:fillColor="#5EEAD4"
+        android:pathData="M55,63 h3 a1,1 0 0,1 1,1 v3 h-5 v-3 a1,1 0 0,1 1,-1 z" />
+
+    <!-- Barra 2 (Média) -->
+    <path
+        android:fillColor="#2DD4BF"
+        android:pathData="M60,57 h3 a1,1 0 0,1 1,1 v9 h-5 v-9 a1,1 0 0,1 1,-1 z" />
+
+    <!-- Barra 3 (Pico Cobre Vitrine) -->
+    <path
+        android:fillColor="#F2A365"
+        android:pathData="M65,50 h3 a1,1 0 0,1 1,1 v16 h-5 v-16 a1,1 0 0,1 1,-1 z" />
+
+    <!-- Linha de tendência financeira ascendente -->
+    <path
+        android:strokeColor="#F2A365"
+        android:strokeWidth="1.4"
         android:strokeLineCap="round"
         android:strokeLineJoin="round"
-        android:pathData="M70,64 l2,2 l4,-4" />
+        android:pathData="M54,62 l7,-7 l6,-6" />
+
+    <!-- Seta indicativa de alta -->
+    <path
+        android:strokeColor="#F2A365"
+        android:strokeWidth="1.4"
+        android:strokeLineCap="round"
+        android:strokeLineJoin="round"
+        android:pathData="M64,49 h3 v3" />
 
 </vector>

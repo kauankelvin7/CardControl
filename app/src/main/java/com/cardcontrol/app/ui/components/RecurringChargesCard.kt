@@ -2,9 +2,9 @@ package com.cardcontrol.app.ui.components
 
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,21 +32,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.cardcontrol.app.data.local.RecurringChargeEntity
+import com.cardcontrol.app.ui.designsystem.CCTheme
 import com.cardcontrol.app.util.ReportEngine
 import com.cardcontrol.app.ui.theme.CurrencyText
 import com.cardcontrol.app.ui.theme.OverlineText
-import com.cardcontrol.app.ui.theme.PrimaryAccent
-import com.cardcontrol.app.ui.theme.SecondaryAccent
-import com.cardcontrol.app.ui.theme.SemanticDanger
-import com.cardcontrol.app.ui.theme.SemanticWarning
-import com.cardcontrol.app.ui.theme.TextPrimary
-import com.cardcontrol.app.ui.theme.TextSecondary
-import com.cardcontrol.app.ui.theme.liquidGlassCard
 
 /**
  * Card visual para exibição e gestão de assinaturas e despesas recorrentes detectadas.
@@ -65,17 +58,16 @@ fun RecurringChargesCard(
     modifier: Modifier = Modifier
 ) {
     var isExpanded by remember { mutableStateOf(true) }
+    val colors = MaterialTheme.colorScheme
+    val semantics = CCTheme.extras.semantics
 
-    Box(
-        modifier = modifier
-            .fillMaxWidth()
-            .liquidGlassCard(
-                cornerRadius = 20.dp,
-                accentTint = if (priceCreepAlertCount > 0) SemanticWarning else SecondaryAccent
-            )
-            .padding(16.dp)
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(20.dp),
+        color = colors.surfaceContainer,
+        border = BorderStroke(1.dp, colors.outlineVariant)
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -87,14 +79,14 @@ fun RecurringChargesCard(
                     Icon(
                         imageVector = Icons.Default.Autorenew,
                         contentDescription = null,
-                        tint = if (priceCreepAlertCount > 0) SemanticWarning else SecondaryAccent,
+                        tint = if (priceCreepAlertCount > 0) semantics.warning else colors.primary,
                         modifier = Modifier.size(20.dp)
                     )
                     Text(
                         "Assinaturas & Recorrências",
                         style = MaterialTheme.typography.titleMedium,
                         fontWeight = FontWeight.Bold,
-                        color = TextPrimary
+                        color = colors.onSurface
                     )
                 }
 
@@ -102,8 +94,8 @@ fun RecurringChargesCard(
                     if (priceCreepAlertCount > 0) {
                         Surface(
                             shape = CircleShape,
-                            color = SemanticWarning.copy(alpha = 0.2f),
-                            border = androidx.compose.foundation.BorderStroke(1.dp, SemanticWarning.copy(alpha = 0.6f))
+                            color = semantics.warningContainer,
+                            border = BorderStroke(1.dp, semantics.warning)
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp),
@@ -113,14 +105,14 @@ fun RecurringChargesCard(
                                 Icon(
                                     Icons.AutoMirrored.Filled.TrendingUp,
                                     contentDescription = "Alerta de aumento",
-                                    tint = SemanticWarning,
+                                    tint = semantics.warning,
                                     modifier = Modifier.size(12.dp)
                                 )
                                 Text(
                                     "$priceCreepAlertCount alta",
                                     style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
                                     fontWeight = FontWeight.Bold,
-                                    color = SemanticWarning
+                                    color = semantics.warning
                                 )
                             }
                         }
@@ -129,7 +121,7 @@ fun RecurringChargesCard(
                     Icon(
                         imageVector = if (isExpanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                         contentDescription = if (isExpanded) "Recolher" else "Expandir",
-                        tint = TextSecondary
+                        tint = colors.onSurfaceVariant
                     )
                 }
             }
@@ -145,7 +137,7 @@ fun RecurringChargesCard(
                         amountCents = totalMonthlyRecurring,
                         fontSize = 22.sp,
                         fontWeight = FontWeight.ExtraBold,
-                        color = TextPrimary
+                        color = colors.onSurface
                     )
                 }
                 Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
@@ -154,7 +146,7 @@ fun RecurringChargesCard(
                         String.format(java.util.Locale.US, "%.1f%%", limitImpactPercent),
                         style = MaterialTheme.typography.titleMedium.copy(fontFeatureSettings = "tnum"),
                         fontWeight = FontWeight.Bold,
-                        color = if (limitImpactPercent > 30.0) SemanticWarning else PrimaryAccent
+                        color = if (limitImpactPercent > 30.0) semantics.warning else colors.primary
                     )
                 }
             }
@@ -164,13 +156,13 @@ fun RecurringChargesCard(
                     modifier = Modifier.padding(top = 4.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    HorizontalDivider(color = Color.White.copy(alpha = 0.1f))
+                    HorizontalDivider(color = colors.outlineVariant)
 
                     if (recurringCharges.isEmpty()) {
                         Text(
                             "Nenhuma assinatura detectada ainda. Compras recorrentes a cada ~30 dias serão identificadas automaticamente.",
                             style = MaterialTheme.typography.bodySmall,
-                            color = TextSecondary
+                            color = colors.onSurfaceVariant
                         )
                     } else {
                         recurringCharges.forEach { charge ->
@@ -181,7 +173,7 @@ fun RecurringChargesCard(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
-                                    .background(Color.White.copy(alpha = 0.04f))
+                                    .background(colors.surfaceContainerLow)
                                     .padding(horizontal = 10.dp, vertical = 8.dp),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                                 verticalAlignment = Alignment.CenterVertically
@@ -195,20 +187,20 @@ fun RecurringChargesCard(
                                             charge.merchant,
                                             style = MaterialTheme.typography.bodyMedium,
                                             fontWeight = FontWeight.SemiBold,
-                                            color = if (charge.isActive) TextPrimary else TextSecondary.copy(alpha = 0.6f)
+                                            color = if (charge.isActive) colors.onSurface else colors.onSurfaceVariant
                                         )
                                         if (hasCreep && charge.isActive) {
                                             Surface(
                                                 shape = CircleShape,
-                                                color = SemanticDanger.copy(alpha = 0.2f),
-                                                border = androidx.compose.foundation.BorderStroke(1.dp, SemanticDanger.copy(alpha = 0.5f))
+                                                    color = colors.errorContainer,
+                                                    border = BorderStroke(1.dp, colors.error)
                                             ) {
                                                 Text(
                                                     "+${ReportEngine.formatCurrency(delta)}",
                                                     modifier = Modifier.padding(horizontal = 6.dp, vertical = 1.dp),
                                                     style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
                                                     fontWeight = FontWeight.Bold,
-                                                    color = SemanticDanger
+                                                    color = colors.error
                                                 )
                                             }
                                         }
@@ -216,7 +208,7 @@ fun RecurringChargesCard(
                                     Text(
                                         "Ciclo ~${charge.billingCycleDays} dias • ${if (charge.isActive) "Ativa" else "Pausada"}",
                                         style = MaterialTheme.typography.labelSmall,
-                                        color = TextSecondary
+                                        color = colors.onSurfaceVariant
                                     )
                                 }
 
@@ -228,16 +220,16 @@ fun RecurringChargesCard(
                                         amountCents = charge.lastAmount,
                                         fontSize = 15.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = if (charge.isActive) PrimaryAccent else TextSecondary.copy(alpha = 0.5f)
+                                        color = if (charge.isActive) colors.primary else colors.onSurfaceVariant
                                     )
                                     Switch(
                                         checked = charge.isActive,
                                         onCheckedChange = { active -> onToggleActive(charge.id, active) },
                                         colors = SwitchDefaults.colors(
-                                            checkedThumbColor = PrimaryAccent,
-                                            checkedTrackColor = SecondaryAccent.copy(alpha = 0.5f),
-                                            uncheckedThumbColor = TextSecondary,
-                                            uncheckedTrackColor = Color.White.copy(alpha = 0.1f)
+                                            checkedThumbColor = colors.primary,
+                                            checkedTrackColor = colors.primaryContainer,
+                                            uncheckedThumbColor = colors.onSurfaceVariant,
+                                            uncheckedTrackColor = colors.surfaceContainerHigh
                                         )
                                     )
                                 }

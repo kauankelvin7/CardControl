@@ -185,18 +185,17 @@ fun <T> LiquidPillSelector(
     ) {
         options.forEach { (id, label) ->
             val isSelected = id == selectedId
-            val accent = if (isSelected) PrimaryAccent else TextSecondary
             Box(
                 modifier = Modifier
                     .clip(CircleShape)
                     .background(
-                        if (isSelected) PrimaryAccent.copy(alpha = 0.18f)
-                        else Color.White.copy(alpha = 0.05f)
+                        if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                        else MaterialTheme.colorScheme.surfaceContainerHigh
                     )
                     .border(
                         width = 1.dp,
-                        color = if (isSelected) PrimaryAccent.copy(alpha = 0.60f)
-                        else Color.White.copy(alpha = 0.10f),
+                        color = if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.outlineVariant,
                         shape = CircleShape
                     )
                     .clickable { onSelect(id) }
@@ -205,7 +204,8 @@ fun <T> LiquidPillSelector(
             ) {
                 Text(
                     text = label,
-                    color = if (isSelected) TextPrimary else accent,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                    else MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
                 )

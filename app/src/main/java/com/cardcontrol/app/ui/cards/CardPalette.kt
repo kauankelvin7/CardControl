@@ -184,22 +184,14 @@ object CardPaletteResolver {
         if (bank == SupportedBank.OTHER) {
             return CcCardPresets.Grafite
         }
-        // Atribuições canônicas e icônicas dos bancos nacionais conhecidos:
-        return when (bank) {
-            SupportedBank.NUBANK -> CcCardPresets.Ametista   // Roxo / Nubank
-            SupportedBank.ITAU -> CcCardPresets.Coral       // Laranja / Itaú
-            SupportedBank.BRADESCO -> CcCardPresets.Rubi    // Vermelho / Bradesco
-            SupportedBank.SANTANDER -> CcCardPresets.Rubi   // Vermelho / Santander
-            SupportedBank.PICPAY -> CcCardPresets.Esmeralda // Verde / PicPay
-            SupportedBank.CAIXA -> CcCardPresets.Safira     // Azul / Caixa
-            SupportedBank.INTER -> CcCardPresets.Coral      // Laranja / Inter
-            SupportedBank.C6 -> CcCardPresets.Grafite       // Grafite/Carbon / C6
-            SupportedBank.MERCADO_PAGO -> CcCardPresets.Safira // Azul / Mercado Pago
-            else -> {
-                val index = (bank.id.hashCode() and 0x7FFFFFFF) % CcCardPresets.coloredPresets.size
-                CcCardPresets.coloredPresets[index]
-            }
-        }
+        val visual = BankCardVisuals.resolve(bank)
+        return CardPalette(
+            name = visual.brandLabel,
+            start = visual.startColor,
+            end = visual.endColor,
+            back0 = visual.backStart,
+            back1 = visual.backEnd
+        )
     }
 
     /**

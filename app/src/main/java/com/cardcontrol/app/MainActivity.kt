@@ -26,8 +26,10 @@ class MainActivity : ComponentActivity() {
         // Inicializa a janela no modo edge-to-edge sem qualquer faixa preta
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        val uiPrefs = getSharedPreferences("card_control_ui_prefs", MODE_PRIVATE)
+        val initialThemeMode = themeModeFromPreference(uiPrefs.getString("theme_mode", null))
         setContent {
-            var themeMode by rememberSaveable { mutableStateOf(ThemeMode.SYSTEM) }
+            var themeMode by rememberSaveable { mutableStateOf(initialThemeMode) }
             val systemDark = isSystemInDarkTheme()
             val dark = resolveDark(themeMode, systemDark)
 
@@ -53,7 +55,10 @@ class MainActivity : ComponentActivity() {
                 MainScreen(
                     viewModel = vm,
                     themeMode = themeMode,
-                    onThemeModeChange = { themeMode = it },
+                    onThemeModeChange = {
+                        themeMode = it
+                        uiPrefs.edit().putString("theme_mode", it.name).apply()
+                    },
                     onOpenNotificationSettings = {
                         startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
                     }
@@ -62,3 +67,6 @@ class MainActivity : ComponentActivity() {
         }
     }
 }
+
+internal fun themeModeFromPreference(value: String?): ThemeMode =
+    ThemeMode.entries.firstOrNull { it.name == value } ?: ThemeMode.SYSTEM

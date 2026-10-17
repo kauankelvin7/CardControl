@@ -37,17 +37,11 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.cardcontrol.app.data.local.CreditCardEntity
 import com.cardcontrol.app.data.local.HolderEntity
+import com.cardcontrol.app.ui.designsystem.CCTheme
+import com.cardcontrol.app.ui.designsystem.CcShapes
 import com.cardcontrol.app.util.MoneyUtils
 import com.cardcontrol.app.ui.components.GlassTextField
-import com.cardcontrol.app.ui.theme.AppBackground
-import com.cardcontrol.app.ui.theme.AppBackgroundTop
-import com.cardcontrol.app.ui.theme.GlassBorderTopLeft
 import com.cardcontrol.app.ui.theme.LiquidPillSelector
-import com.cardcontrol.app.ui.theme.PrimaryAccent
-import com.cardcontrol.app.ui.theme.SecondaryAccent
-import com.cardcontrol.app.ui.theme.SemanticSuccess
-import com.cardcontrol.app.ui.theme.TextPrimary
-import com.cardcontrol.app.ui.theme.TextSecondary
 
 /**
  * Diálogo modal para lançamento manual de despesa no cartão de crédito.
@@ -61,17 +55,20 @@ fun ExpenseDialog(
     cards: List<CreditCardEntity>,
     holders: List<HolderEntity>,
     onDismissRequest: () -> Unit,
-    onConfirm: (cardId: Long, holderId: Long, merchant: String, amountCents: Long, parcels: Int) -> Unit
+    onConfirm: (cardId: Long, holderId: Long, merchant: String, amountCents: Long, parcels: Int) -> Unit,
+    initialCardId: Long? = null
 ) {
     if (cards.isEmpty() || holders.isEmpty()) return
 
     var merchant by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var parcels by remember { mutableStateOf("1") }
-    var selectedCardId by remember { mutableLongStateOf(cards.first().id) }
-    var selectedHolderId by remember {
+    var selectedCardId by remember(cards, initialCardId) {
+        mutableLongStateOf(cards.firstOrNull { it.id == initialCardId }?.id ?: cards.first().id)
+    }
+    var selectedHolderId by remember(cards, holders, initialCardId) {
         mutableLongStateOf(
-            cards.first().defaultHolderId
+            cards.firstOrNull { it.id == selectedCardId }?.defaultHolderId
                 ?.takeIf { holderId -> holders.any { it.id == holderId } }
                 ?: holders.first().id
         )
@@ -79,20 +76,20 @@ fun ExpenseDialog(
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        containerColor = AppBackgroundTop,
-        titleContentColor = TextPrimary,
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        shape = CcShapes.dialog,
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CcShapes.dialog),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.AddShoppingCart, null, tint = PrimaryAccent)
+                Icon(Icons.Default.AddShoppingCart, null, tint = MaterialTheme.colorScheme.primary)
                 Spacer(Modifier.width(8.dp))
                 Text("Lançar Compra", fontWeight = FontWeight.Bold)
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                Text("Cartão Utilizado:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                Text("Cartão Utilizado:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     LiquidPillSelector(
                         options = cards.map { it.id to "${it.name} (${it.lastFourDigits})" },
@@ -105,7 +102,7 @@ fun ExpenseDialog(
                         }
                     )
                 }
-                Text("Responsável pelo Gasto:", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
+                Text("Responsável pelo Gasto:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     LiquidPillSelector(
                         options = holders.map { it.id to it.name },
@@ -118,7 +115,7 @@ fun ExpenseDialog(
                     onValueChange = { merchant = it },
                     label = "Estabelecimento",
                     placeholder = "Ex: Mercado Livre, Posto...",
-                    leadingIcon = { Icon(Icons.Default.Storefront, null, tint = PrimaryAccent) },
+                    leadingIcon = { Icon(Icons.Default.Storefront, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
                 )
                 GlassTextField(
@@ -126,7 +123,7 @@ fun ExpenseDialog(
                     onValueChange = { amount = it },
                     label = "Valor Total (R$)",
                     placeholder = "0,00",
-                    leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = SemanticSuccess) },
+                    leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = CCTheme.extras.semantics.success) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Next)
                 )
                 GlassTextField(
@@ -134,14 +131,14 @@ fun ExpenseDialog(
                     onValueChange = { parcels = it },
                     label = "Parcelas (1 a 72)",
                     placeholder = "1",
-                    leadingIcon = { Icon(Icons.Default.Layers, null, tint = SecondaryAccent) },
+                    leadingIcon = { Icon(Icons.Default.Layers, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
                 )
             }
         },
         dismissButton = {
             TextButton(onClick = onDismissRequest) {
-                Text("Cancelar", color = TextSecondary)
+                Text("Cancelar", color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
         confirmButton = {
@@ -158,10 +155,13 @@ fun ExpenseDialog(
                         )
                     }
                 },
-                colors = ButtonDefaults.buttonColors(containerColor = PrimaryAccent, contentColor = AppBackground),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Confirmar", color = AppBackground, fontWeight = FontWeight.Bold)
+                Text("Confirmar", fontWeight = FontWeight.Bold)
             }
         }
     )

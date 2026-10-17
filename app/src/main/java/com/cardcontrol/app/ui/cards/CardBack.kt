@@ -48,8 +48,27 @@ fun CardBack(
     onFlip: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val visual = remember(card.bankId) {
+        BankCardVisuals.resolveByBankId(card.bankId)
+    }
+
     val palette = remember(card.colorSeed, card.bankId) {
         CardPaletteResolver.resolve(card.colorSeed, card.bankId)
+    }
+
+    val backBrush = remember(card.colorSeed, visual, palette) {
+        when (card.colorSeed) {
+            is CardColorSeed.Auto -> Brush.linearGradient(
+                colors = listOf(visual.backStart, visual.backEnd),
+                start = Offset(0f, 0f),
+                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+            )
+            else -> Brush.linearGradient(
+                colors = listOf(palette.back0, palette.back1),
+                start = Offset(0f, 0f),
+                end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
+            )
+        }
     }
 
     BoxWithConstraints(
@@ -68,13 +87,7 @@ fun CardBack(
         Box(
             modifier = Modifier
                 .fillMaxSize()
-                .background(
-                    brush = Brush.linearGradient(
-                        colors = listOf(palette.back0, palette.back1),
-                        start = Offset(0f, 0f),
-                        end = Offset(Float.POSITIVE_INFINITY, Float.POSITIVE_INFINITY)
-                    )
-                )
+                .background(brush = backBrush)
                 .padding(internalPadding)
         ) {
             Column(

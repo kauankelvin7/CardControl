@@ -103,7 +103,7 @@ fun CardsScreen(
                         MaterialTheme.colorScheme.surface
                     ),
                     startY = 0f,
-                    endY = 700f
+                    endY = Float.POSITIVE_INFINITY
                 )
             )
     ) {
@@ -165,30 +165,20 @@ fun CardsScreen(
                             .padding(horizontal = 20.dp)
                     )
 
-                    Spacer(Modifier.height(20.dp))
+                    Spacer(Modifier.height(16.dp))
 
-                    // 4. Linha de Ações Reais Contextuais (C7)
-                    CardActionsRow(
+                    // 4. Duas Ações Primárias Contextuais Equilibradas (C7 e Seção 3.2)
+                    CardPrimaryActions(
                         card = selectedCard,
                         onAddExpense = { onAddExpenseForCard(selectedCard) },
-                        onEdit = { onEditCard(selectedCard) },
-                        onDelete = { onDeleteCard(selectedCard) },
+                        onSeeInvoices = onSeeMore,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 16.dp)
+                            .padding(horizontal = 20.dp)
                     )
 
                     Spacer(Modifier.height(24.dp))
                 }
-
-                // 5. Grupo "Ver mais" + "+" (C8)
-                SeeMoreAndAdd(
-                    onSeeMore = onSeeMore,
-                    onAddCard = onAddCard,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 20.dp)
-                )
             }
         }
     }
