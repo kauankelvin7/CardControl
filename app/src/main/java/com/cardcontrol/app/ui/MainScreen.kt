@@ -819,7 +819,7 @@ fun MainScreenContent(
 
                             Spacer(Modifier.height(8.dp))
                             Text(
-                                "CardControl • Motor Offline • Liquid Glass",
+                                "CardControl • 100% no aparelho",
                                 style = MaterialTheme.typography.labelSmall,
                                 color = TextMuted,
                                 modifier = Modifier.fillMaxWidth().padding(bottom = 96.dp),

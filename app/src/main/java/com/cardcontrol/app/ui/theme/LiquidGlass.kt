@@ -226,7 +226,7 @@ private fun LiquidGlassPreview() {
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text(
-                            "Liquid Glass Card",
+                            "Card Obsidian",
                             style = MaterialTheme.typography.titleMedium,
                             fontWeight = FontWeight.Bold,
                             color = TextPrimary
