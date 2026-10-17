@@ -101,3 +101,10 @@ tasks:
     dependencies: ["TASK-010", "TASK-012"]
     verification: "Room v4->v5 migration (MIGRATION_4_5), SubscriptionTrackerTest (PASS), RoomV4ToV5MigrationTest, LiquidGlass RecurringChargesCard, assembleDebug & lintDebug PASS"
 
+  - id: "TASK-016"
+    title: "Implementação do Design System Vitrine v2.1 (Claro: Petróleo & Cobre, Escuro: Grafite, Vitrine de Cartões com Flip 3D e Sobrescrita Global)"
+    status: "COMPLETED"
+    owner: "UI/UX / Design System"
+    dependencies: ["TASK-004"]
+    verification: "VitrineThemeAndContrastTest (10 testes WCAG PASS, 126 testes totais PASS), verify.ps1 assembleDebug PASS, zero dynamic color reliance, Google Wallet style 3D carousel"
+

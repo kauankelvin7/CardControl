@@ -68,3 +68,16 @@
 - **Status:** Aceito
 - **Contexto:** O parser anterior restringia-se a compras com cartões e descartava sumariamente notificações que contivessem palavras como `pix`, `transferencia` ou `boleto`, além de não reconhecer transações por aproximação (*contactless* NFC) ou confirmações de carteiras digitais (Apple Pay / Samsung Pay).
 - **Decisão:** Introduzir o enum `NotificationCategory` (`CARD_EXPENSE`, `PIX_SENT`, `PIX_RECEIVED`, `TRANSFER_SENT`, `BILL_PAID`), enriquecer o `BankNotificationParser` com extração de contrapartes (`counterpart`) e estabelecimentos, lookaheads seguros para pontuação final (`(?=\s+(?:via\b|com\b...)\b|\s*[.,:;!]|\s*$)`), desambiguação da deduplicação SHA-256 por categoria e preservação estrita do cálculo financeiro canônico em centavos (`Long`). Rejeições legítimas de segurança (tokens 2FA, senhas provisórias, códigos de autenticação) e sanitização contra ReDoS e CRLF continuam rigorosamente ativas.
+
+---
+
+## ADR-011: Design System Vitrine v2.1 (Claro: Petróleo & Cobre, Escuro: Grafite, Sobrescrita Global e Experiência de Cartões)
+- **Status:** Aceito
+- **Contexto:** O app demandava uma renovação profunda do sistema visual e da experiência de cartões inspirada no Google Wallet, com contraste garantido, acessibilidade nativa e total independência de cores dinâmicas de papel de parede do Android (Dynamic Color / Monet).
+- **Decisão:**
+  1. Sobrescrever globalmente as cores do app com o Design System Vitrine v2.1: Claro = Petróleo & Cobre (`CcLightPetroleo`), Escuro = Grafite (`CcGrafiteDark`).
+  2. Dynamic Color desativado por design (D-01): o sistema operacional define apenas a luminosidade (claro/escuro no modo `ThemeMode.SYSTEM`); a paleta de cores permanece 100% controlada pelo app.
+  3. Tipografia Material 3 com fonte física Inter e algarismos tabulares (`tnum`).
+  4. Experiência de cartões com carrossel interativo (`HorizontalPager` com ID estável e z-index adaptativo), flip 3D no eixo Y (180° com contrarrotação para evitar espelhamento e fade fallback quando movimento reduzido estiver ativado), tingimento animado do terço superior do palco, e ações reais (Lançar compra, Editar, Excluir) sem simulação de cartões de crédito físicos, chips ou pagamentos NFC.
+  5. Resolução determinística e autônoma de paletas em espaço de cores CIELAB (D65) sem chamadas a métodos não mockados do Android SDK na JVM.
+  6. Todas as decisões D-01 a D-16 de `CARDCONTROL_PROMPT_ANTIGRAVITY_VITRINE_COLOR_OVERRIDE.md` consolidadas e validadas por 126 testes automatizados e compilação do APK de debug.

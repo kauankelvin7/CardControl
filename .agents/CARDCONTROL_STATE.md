@@ -1,14 +1,14 @@
 # CardControl — Ponto de Retomada e Estado Canônico
 
 - Data da Última Auditoria: 17 de Outubro de 2026
-- Branch ativa: `main` (Sincronizada em `03fad77`)
-- HEAD SHA: `03fad77`
-- Versão Atual: `v2.3.0` (versionCode 5) — Liquid Glass Edition
+- Branch ativa: `design/v3-home-comparison` (Baseada em `03fad77`)
+- HEAD SHA: `d67b85e`
+- Versão Atual: `v2.3.0` (versionCode 5) — Vitrine Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`)
 - Release no GitHub: Atualizada em `v2.3.0` com novo APK `CardControl-v2.3.0.apk` assinado e verificado.
   - APK SHA-256: `5c396a933ef1e29869084716ad478c05bca7ef9dc9f0070e2fb5f69139aebaeb`
   - Assinatura: Esquema v2 com certificado oficial `A5:24:7A:59:4D:30:C8:FA:F4:6C:8B:30:06:AB:09:27:35:CC:DE:FD:67:81:1B:41:96:5E:01:87:28:64:93:28`
-- Feature Integrada: Expansão do Motor de Notificações Bancárias (Gastos de Cartão, Aproximação NFC, Carteiras Digitais, Pix Enviado/Recebido, TED e Boletos)
+- Feature Integrada: Design System Vitrine v2.1 (Claro: Petróleo & Cobre, Escuro: Grafite, Vitrine de Cartões com Flip 3D, Sobrescrita Global e Desacoplamento de Cores Dinâmicas)
 
 ---
 
@@ -53,16 +53,26 @@
    - Deduplicação SHA-256 aprimorada incorporando a categoria da notificação para prevenir colisões entre operações distintas de mesmo valor.
    - 19 novos testes unitários adicionados no `BankNotificationParserTest`, elevando a suíte para 52 testes específicos do parser e 116 testes no total geral do projeto.
 
+7. **Design System Vitrine v2.1 (Claro: Petróleo & Cobre, Escuro: Grafite, Sobrescrita Global e Experiência de Cartões):**
+   - Sobrescrita global do sistema cromático em todo o aplicativo sem dependência de cores dinâmicas do papel de parede Android.
+   - Tema claro Petróleo & Cobre (`CcLightPetroleo`) e tema escuro Grafite (`CcGrafiteDark`) com semânticos e extras calibrados por contraste WCAG 2.1.
+   - Tipografia M3 com fonte Inter e algarismos tabulares (`tnum`). Formas, espaçamento base 4dp e molas animadas (`CcMotion`).
+   - Carrossel de cartões interativo tipo Google Wallet com `HorizontalPager`, peek equilibrado, z-index adaptativo e flip 3D no eixo Y (180° com contrarrotação e dados reais de limite, fechamento e vencimento).
+   - Tingimento animado do terço superior do palco com proteção contra ofuscamento.
+   - Resolução de paletas de cartões com 12 predefinições e algoritmo determinístico puro sRGB <-> CIELAB.
+   - Suíte de 10 novos testes unitários cobrindo contrastes WCAG, invariância de cores, algoritmos e 250 sementes aleatórias em `VitrineThemeAndContrastTest.kt`.
+   - Suíte geral de testes unitários expandida para 126 testes (100% PASS).
+
 ---
 
 ## 2. Evidências Empíricas dos Gates de Engenharia
 
-- **Testes Unitários:** 116 testes executados, 116 aprovados, 0 falhas, 0 erros, 0 ignorados (`BUILD SUCCESSFUL`).
+- **Testes Unitários:** 126 testes executados, 126 aprovados, 0 falhas, 0 erros, 0 ignorados (`BUILD SUCCESSFUL in 1m 21s`).
 - **Validação em SQLite Real (`scripts/test_room_v3_to_v4_real_sqlite.py`):** 100% aprovado com tratamento de bancos ambíguos.
 - **Canários de Empacotamento Seguro (`scripts/test_bundle_canary.py`):** 28 arquivos-canário sensíveis bloqueados com sucesso.
-- **Compilação e Linting:** `assembleDebug` gerado com sucesso (APK 16,46 MB em `app/build/outputs/apk/debug/app-debug.apk`).
-- **Integridade Git:** `git diff --check` aprovado sem inconsistências.
-- **ConfiguraÃ§Ã£o Remota:** GitHub CLI confirmou os 4 secrets e as 2 variables no repositÃ³rio `kauankelvin7/CardControl`.
+- **Compilação e Linting:** `assembleDebug` gerado com sucesso (APK 17,35 MB em `app/build/outputs/apk/debug/app-debug.apk`).
+- **Integridade Git:** `git diff --check` aprovado sem inconsistências de whitespace.
+- **Configuração Remota:** GitHub CLI confirmou os 4 secrets e as 2 variables no repositório `kauankelvin7/CardControl`.
 
 ---
 

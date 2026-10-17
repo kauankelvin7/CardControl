@@ -50,18 +50,35 @@ data class CCColors(
  * A estrutura de tokens permanece extensível para novas direções futuras.
  */
 val CCGrafiteDark = CCColors(
-    bgBase = Color(0xFF0B0B0C),
-    surface1 = Color(0xFF141416),
-    surface2 = Color(0xFF1B1B1E),
-    surface3 = Color(0xFF242428),
-    textPrimary = Color(0xFFF4F4F5),
-    textSecondary = Color(0xFFB4B4BB),
-    textTertiary = Color(0xFF8A8A93),
-    accent = Color(0xFFF4F4F5),     // Botão tinta off-white
-    onAccent = Color(0xFF0B0B0C),
-    accentContainer = Color(0x1FF4F4F5),
-    accentDynamic = Color(0xFFE69F00), // Cartão Inter / Categoria
+    bgBase = Color(0xFF111717),
+    surface1 = Color(0xFF171C1D),
+    surface2 = Color(0xFF1C2222),
+    surface3 = Color(0xFF242A2B),
+    textPrimary = Color(0xFFDDE4E5),
+    textSecondary = Color(0xFFB5C4C6),
+    textTertiary = Color(0xFF808E90),
+    accent = Color(0xFF72D5E1),
+    onAccent = Color(0xFF00363C),
+    accentContainer = Color(0xFF004F56),
+    accentDynamic = Color(0xFFE69F00),
     glowColor = Color(0x1AE69F00)
+)
+
+val CCGrafiteDarkLegacy = CCGrafiteDark
+
+val CCLightLegacy = CCColors(
+    bgBase = Color(0xFFF4FBFB),
+    surface1 = Color(0xFFEEF5F6),
+    surface2 = Color(0xFFE8EFF0),
+    surface3 = Color(0xFFE3E9EA),
+    textPrimary = Color(0xFF181C1D),
+    textSecondary = Color(0xFF3C494B),
+    textTertiary = Color(0xFF6C7A7B),
+    accent = Color(0xFF006972),
+    onAccent = Color(0xFFFFFFFF),
+    accentContainer = Color(0xFF8FF2FE),
+    accentDynamic = Color(0xFF83532D),
+    glowColor = Color(0x1A006972)
 )
 
 

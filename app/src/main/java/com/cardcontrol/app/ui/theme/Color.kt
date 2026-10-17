@@ -1,28 +1,30 @@
 package com.cardcontrol.app.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import com.cardcontrol.app.ui.designsystem.CcGrafiteDark
+import com.cardcontrol.app.ui.designsystem.CcSemanticsDark
 
-// Design System Tokens — Liquid Glass Edition (Linear / Raycast / Fintech Premium)
-val AppBackground = Color(0xFF060913)
-val AppBackgroundTop = Color(0xFF0F172A)
-val GlassSurface = Color(0xFF0F172A).copy(alpha = 0.65f)
+// Mapeamento dos tokens legados para os valores oficiais do Design System Vitrine (Grafite)
+val AppBackground = CcGrafiteDark.background
+val AppBackgroundTop = Color(0xFF171C1D)
+val GlassSurface = Color(0xFF1C2222).copy(alpha = 0.85f)
 
 // Core Accents
-val PrimaryAccent = Color(0xFF38BDF8) // Sky Blue — CTA primário e indicadores
-val SecondaryAccent = Color(0xFF6366F1) // Indigo — Gradientes e barras de progresso
+val PrimaryAccent = CcGrafiteDark.primary       // #72D5E1
+val SecondaryAccent = CcGrafiteDark.secondary   // #A8CDD2
 
 // Semantic Colors
-val SemanticSuccess = Color(0xFF34D399) // Emerald — Valores disponíveis/abatidos
-val SemanticWarning = Color(0xFFFBBF24) // Amber — Sublimite próximo ao teto / Alertas
-val SemanticDanger = Color(0xFFF43F5E) // Rose — Ações destrutivas e confirmação
+val SemanticSuccess = CcSemanticsDark.success   // #8FD79E
+val SemanticWarning = CcSemanticsDark.warning   // #EAC078
+val SemanticDanger = CcSemanticsDark.error      // #F2B8B5
 
 // Neutral Text Hierarchy
-val TextPrimary = Color(0xFFF8FAFC)
-val TextSecondary = Color(0xFF94A3B8)
-val TextMuted = Color(0xFF64748B)
+val TextPrimary = CcGrafiteDark.onBackground    // #DDE4E5
+val TextSecondary = CcGrafiteDark.onSurfaceVariant // #B5C4C6
+val TextMuted = CcGrafiteDark.outline           // #808E90
 
-// Glass Reflections & Specular Highlights
-val GlassBorderTopLeft = Color.White.copy(alpha = 0.22f)
+// Glass Reflections & Specular Highlights adaptados para bordas sutis Vitrine (B4.3)
+val GlassBorderTopLeft = Color.White.copy(alpha = 0.10f)
 val GlassBorderMid = Color.White.copy(alpha = 0.05f)
 val GlassBorderBottomRight = Color.Transparent
-val GlassTrackBackground = Color.White.copy(alpha = 0.08f)
+val GlassTrackBackground = Color.White.copy(alpha = 0.06f)

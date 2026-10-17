@@ -1,29 +1,20 @@
 package com.cardcontrol.app.ui.theme
 
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import com.cardcontrol.app.ui.designsystem.AppearancePrefs
+import com.cardcontrol.app.ui.designsystem.CardControlTheme as VitrineCardControlTheme
 
-private val DarkColorScheme = darkColorScheme(
-    primary = PrimaryAccent,
-    secondary = SecondaryAccent,
-    tertiary = SemanticSuccess,
-    background = AppBackground,
-    surface = GlassSurface,
-    error = SemanticDanger,
-    onPrimary = AppBackground,
-    onSecondary = TextPrimary,
-    onBackground = TextPrimary,
-    onSurface = TextPrimary
-)
-
+/**
+ * Ponto de entrada legado de CardControlTheme redirecionando para o Design System Vitrine oficial.
+ * Garante que a paleta Vitrine sobrescreva as cores do sistema em todas as telas da aplicação.
+ */
 @Composable
 fun CardControlTheme(
+    prefs: AppearancePrefs = AppearancePrefs(),
     content: @Composable () -> Unit
 ) {
-    MaterialTheme(
-        colorScheme = DarkColorScheme,
-        typography = CardControlTypography,
+    VitrineCardControlTheme(
+        prefs = prefs,
         content = content
     )
 }

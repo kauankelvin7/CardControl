@@ -4,13 +4,13 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -20,17 +20,14 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.cardcontrol.app.data.local.CreditCardEntity
-import com.cardcontrol.app.ui.theme.AppBackgroundTop
-import com.cardcontrol.app.ui.theme.GlassBorderTopLeft
-import com.cardcontrol.app.ui.theme.SemanticDanger
-import com.cardcontrol.app.ui.theme.TextPrimary
-import com.cardcontrol.app.ui.theme.TextSecondary
+import com.cardcontrol.app.ui.designsystem.CcShapes
+import com.cardcontrol.app.ui.designsystem.CcType
 
 /**
- * Diálogo modal de confirmação para exclusão de cartão de crédito.
+ * Diálogo modal de confirmação para exclusão de cartão de crédito (C10 e C11).
  *
- * Alerta o usuário de que a exclusão só será permitida se o cartão não possuir
- * transações, faturas ou parcelas vinculadas, garantindo integridade referencial.
+ * Utiliza o design system Vitrine com raio de diálogo 28dp, botões semânticos e
+ * mensagem clara de integridade contábil.
  */
 @Composable
 fun DeleteCardDialog(
@@ -40,35 +37,56 @@ fun DeleteCardDialog(
 ) {
     AlertDialog(
         onDismissRequest = onDismissRequest,
-        containerColor = AppBackgroundTop,
-        titleContentColor = TextPrimary,
-        shape = RoundedCornerShape(24.dp),
-        modifier = Modifier.border(1.dp, GlassBorderTopLeft, RoundedCornerShape(24.dp)),
+        containerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+        titleContentColor = MaterialTheme.colorScheme.onSurface,
+        shape = CcShapes.dialog,
+        modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CcShapes.dialog),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.Delete, contentDescription = null, tint = SemanticDanger)
-                Spacer(Modifier.width(8.dp))
-                Text("Excluir cartão?", fontWeight = FontWeight.Bold)
+                Icon(
+                    imageVector = Icons.Default.Delete,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.error
+                )
+                Spacer(Modifier.width(10.dp))
+                Text(
+                    text = "Excluir cartão?",
+                    style = CcType.dialogTitle,
+                    fontWeight = FontWeight.Bold,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
             }
         },
         text = {
             Text(
-                "O cartão \"${card.name}\" só será excluído se não tiver compras, parcelas ou pagamentos vinculados. Assim, o histórico financeiro não será apagado por engano.",
-                color = TextSecondary
+                text = "O cartão \"${card.name}\" será removido do CardControl. Isso não afeta seu cartão real nem sua conta bancária.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         },
         dismissButton = {
             TextButton(onClick = onDismissRequest) {
-                Text("Cancelar", color = TextSecondary)
+                Text(
+                    text = "Cancelar",
+                    style = CcType.buttonLabel,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         },
         confirmButton = {
             Button(
                 onClick = { onConfirm(card.id) },
-                colors = ButtonDefaults.buttonColors(containerColor = SemanticDanger, contentColor = Color.White),
-                shape = RoundedCornerShape(12.dp)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.error,
+                    contentColor = MaterialTheme.colorScheme.onError
+                ),
+                shape = CcShapes.chip
             ) {
-                Text("Excluir cartão", color = Color.White, fontWeight = FontWeight.Bold)
+                Text(
+                    text = "Excluir",
+                    style = CcType.buttonLabel,
+                    fontWeight = FontWeight.Bold
+                )
             }
         }
     )

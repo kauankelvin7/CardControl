@@ -33,6 +33,11 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.runtime.saveable.rememberSaveable
+import com.cardcontrol.app.ui.cards.CardUi
+import com.cardcontrol.app.ui.cards.CardsScreen
+import com.cardcontrol.app.ui.designsystem.AppearanceSection
+import com.cardcontrol.app.ui.designsystem.ThemeMode
 import com.cardcontrol.app.ui.components.GlassTextField
 import com.cardcontrol.app.ui.components.RecurringChargesCard
 import com.cardcontrol.app.ui.dialogs.CardDialog
@@ -49,6 +54,8 @@ import kotlinx.coroutines.flow.collect
 @Composable
 fun MainScreen(
     viewModel: MainViewModel,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onOpenNotificationSettings: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -63,6 +70,8 @@ fun MainScreen(
 
     MainScreenContent(
         state = state,
+        themeMode = themeMode,
+        onThemeModeChange = onThemeModeChange,
         onOpenNotificationSettings = onOpenNotificationSettings,
         onChangeMonth = { offset -> viewModel.changeMonth(offset) },
         onToggleRecurringCharge = { id, active -> viewModel.setRecurringChargeActive(id, active) },
@@ -109,6 +118,8 @@ fun MainScreenContent(
     state: DashboardUiState,
     initialTab: Int = 0,
     initialExpandedHolderId: Long? = null,
+    themeMode: ThemeMode = ThemeMode.SYSTEM,
+    onThemeModeChange: (ThemeMode) -> Unit = {},
     onOpenNotificationSettings: () -> Unit = {},
     onChangeMonth: (Long) -> Unit = {},
     onToggleRecurringCharge: (Long, Boolean) -> Unit = { _, _ -> },
@@ -130,6 +141,7 @@ fun MainScreenContent(
     var expandedHolderId by remember { mutableStateOf<Long?>(initialExpandedHolderId) }
     var cardBeingEdited by remember { mutableStateOf<CreditCardEntity?>(null) }
     var cardPendingDeletion by remember { mutableStateOf<CreditCardEntity?>(null) }
+    var selectedVitrineCardId by rememberSaveable { mutableStateOf<Long?>(null) }
 
     var showExpenseDialog by remember { mutableStateOf(false) }
     var showPaymentDialog by remember { mutableStateOf(false) }
@@ -522,186 +534,34 @@ fun MainScreenContent(
                     }
 
                     1 -> {
-                        Column(
-                            modifier = Modifier.fillMaxSize(),
-                            verticalArrangement = Arrangement.spacedBy(12.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier.padding(top = 4.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp)
-                            ) {
-                                Text(
-                                    "Seus cartões",
-                                    style = MaterialTheme.typography.titleLarge,
-                                    fontWeight = FontWeight.Bold,
-                                    color = TextPrimary
-                                )
-                                Text(
-                                    if (state.cards.size == 1) "1 cartão cadastrado"
-                                    else "${state.cards.size} cartões cadastrados",
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = TextSecondary
-                                )
-                            }
-
-                            if (state.cards.isEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .weight(1f)
-                                        .fillMaxWidth()
-                                        .liquidGlassCard(cornerRadius = 22.dp, accentTint = SecondaryAccent)
-                                        .padding(22.dp)
-                                ) {
-                                    Column(
-                                        horizontalAlignment = Alignment.CenterHorizontally,
-                                        verticalArrangement = Arrangement.spacedBy(10.dp),
-                                        modifier = Modifier.fillMaxWidth().align(Alignment.Center)
-                                    ) {
-                                        Icon(Icons.Default.AddCard, contentDescription = null, tint = SecondaryAccent, modifier = Modifier.size(42.dp))
-                                        Text("Nenhum cartão por aqui", fontWeight = FontWeight.Bold, color = TextPrimary)
-                                        Text(
-                                            "Cadastre um cartão, escolha a pessoa responsável e acompanhe o limite disponível nesta tela.",
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = TextSecondary,
-                                            textAlign = TextAlign.Center
-                                        )
-                                        OutlinedButton(
-                                            onClick = {
-                                                cardBeingEdited = null
-                                                showCardDialog = true
-                                            },
-                                            shape = RoundedCornerShape(14.dp),
-                                            colors = ButtonDefaults.outlinedButtonColors(contentColor = TextPrimary),
-                                            border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.15f))
-                                        ) {
-                                            Icon(Icons.Default.Add, contentDescription = null, tint = PrimaryAccent)
-                                            Spacer(Modifier.width(6.dp))
-                                            Text("Cadastrar cartão", fontWeight = FontWeight.SemiBold)
-                                        }
-                                    }
-                                }
-                            } else {
-                                LazyColumn(
-                                    modifier = Modifier.weight(1f),
-                                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                                    contentPadding = PaddingValues(top = 2.dp, bottom = 104.dp)
-                                ) {
-                                    items(state.cardSummaries, key = { it.card.id }) { item ->
-                                        val ratio = if (item.card.totalLimit > 0L) {
-                                            (item.globalCommitted.toFloat() / item.card.totalLimit.toFloat()).coerceIn(0f, 1f)
-                                        } else 0f
-                                        val linkedHolder = state.holders.firstOrNull { it.id == item.card.defaultHolderId }
-
-                                        Box(
-                                            modifier = Modifier
-                                                .fillMaxWidth()
-                                                .liquidGlassCard(cornerRadius = 22.dp, accentTint = SecondaryAccent)
-                                                .padding(18.dp)
-                                        ) {
-                                            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    val bankInfo = SupportedBank.fromId(item.card.bank)
-                                                    val displayTitle = if (item.card.name.isNotBlank()) item.card.name else bankInfo.displayName
-                                                    Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                                        Text(
-                                                            displayTitle,
-                                                            style = MaterialTheme.typography.titleMedium,
-                                                            fontWeight = FontWeight.Bold,
-                                                            color = TextPrimary
-                                                        )
-                                                        Text(
-                                                            "•••• ${item.card.lastFourDigits}",
-                                                            style = MaterialTheme.typography.titleSmall.copy(fontFeatureSettings = "tnum"),
-                                                            color = TextSecondary
-                                                        )
-                                                    }
-                                                    IconButton(
-                                                        onClick = {
-                                                            cardBeingEdited = item.card
-                                                            showCardDialog = true
-                                                        }
-                                                    ) {
-                                                        Icon(Icons.Default.Edit, contentDescription = "Editar cartão ${item.card.name}", tint = TextSecondary)
-                                                    }
-                                                    IconButton(
-                                                        onClick = { cardPendingDeletion = item.card }
-                                                    ) {
-                                                        Icon(Icons.Default.Delete, contentDescription = "Excluir cartão ${item.card.name}", tint = TextSecondary)
-                                                    }
-                                                }
-
-                                                Surface(
-                                                    shape = RoundedCornerShape(8.dp),
-                                                    color = Color.White.copy(alpha = 0.07f),
-                                                    border = androidx.compose.foundation.BorderStroke(1.dp, Color.White.copy(alpha = 0.06f))
-                                                ) {
-                                                    Row(
-                                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp),
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                                                    ) {
-                                                        Icon(
-                                                            Icons.Default.Person,
-                                                            contentDescription = null,
-                                                            tint = if (linkedHolder == null) SemanticWarning else PrimaryAccent,
-                                                            modifier = Modifier.size(14.dp)
-                                                        )
-                                                        Text(
-                                                            linkedHolder?.name?.let { "Pessoa vinculada: $it" } ?: "Nenhuma pessoa vinculada",
-                                                            style = MaterialTheme.typography.labelSmall,
-                                                            color = if (linkedHolder == null) SemanticWarning else TextSecondary
-                                                        )
-                                                    }
-                                                }
-
-                                                Text(
-                                                    "Fecha dia ${item.card.closingDay} • Vence dia ${item.card.dueDay}",
-                                                    style = MaterialTheme.typography.labelMedium.copy(fontFeatureSettings = "tnum"),
-                                                    color = TextSecondary
-                                                )
-
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text("Disponível", style = MaterialTheme.typography.labelMedium, color = TextSecondary)
-                                                    CurrencyText(
-                                                        amountCents = item.availableLimit,
-                                                        fontSize = 20.sp,
-                                                        fontWeight = FontWeight.Bold,
-                                                        color = SemanticSuccess
-                                                    )
-                                                }
-
-                                                val percentUsed = (ratio * 100f).toInt()
-                                                Row(
-                                                    modifier = Modifier.fillMaxWidth(),
-                                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                                    verticalAlignment = Alignment.CenterVertically
-                                                ) {
-                                                    Text(
-                                                        "Utilizado: $percentUsed%",
-                                                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-                                                        color = TextSecondary
-                                                    )
-                                                    Text(
-                                                        "Limite total: ${ReportEngine.formatCurrency(item.card.totalLimit)}",
-                                                        style = MaterialTheme.typography.labelSmall.copy(fontFeatureSettings = "tnum"),
-                                                        color = TextSecondary
-                                                    )
-                                                }
-                                                val barColor = if (ratio >= 0.9f) SemanticDanger else if (ratio >= 0.75f) SemanticWarning else SecondaryAccent
-                                                LiquidGlassBar(progress = ratio, accentColor = barColor)
-                                            }
-                                        }
-                                    }
-                                }
+                        val uiCards = remember(state.cards, state.holders) {
+                            state.cards.map { card ->
+                                val holderName = state.holders.firstOrNull { it.id == card.defaultHolderId }?.name
+                                CardUi.fromEntity(card, holderName = holderName)
                             }
                         }
+                        CardsScreen(
+                            cards = uiCards,
+                            selectedCardId = selectedVitrineCardId ?: uiCards.firstOrNull()?.id,
+                            onCardSelected = { selectedVitrineCardId = it },
+                            onAddCard = {
+                                cardBeingEdited = null
+                                showCardDialog = true
+                            },
+                            onEditCard = { uiCard ->
+                                cardBeingEdited = state.cards.firstOrNull { it.id == uiCard.id }
+                                showCardDialog = true
+                            },
+                            onDeleteCard = { uiCard ->
+                                cardPendingDeletion = state.cards.firstOrNull { it.id == uiCard.id }
+                            },
+                            onAddExpenseForCard = {
+                                showExpenseDialog = true
+                            },
+                            onSeeMore = {
+                                selectedTab = 0
+                            }
+                        )
                     }
 
                     2 -> {
@@ -718,17 +578,22 @@ fun MainScreenContent(
                                 verticalArrangement = Arrangement.spacedBy(4.dp)
                             ) {
                                 Text(
-                                    "Automação & Notificações",
+                                    "Automação & Ajustes",
                                     style = MaterialTheme.typography.titleLarge,
                                     fontWeight = FontWeight.Bold,
                                     color = TextPrimary
                                 )
                                 Text(
-                                    "Captura em tempo real e cofre de credenciais",
+                                    "Captura em tempo real, aparência e cofre",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = TextSecondary
                                 )
                             }
+
+                            AppearanceSection(
+                                currentMode = themeMode,
+                                onModeChange = onThemeModeChange
+                            )
 
                             Box(
                                 modifier = Modifier
