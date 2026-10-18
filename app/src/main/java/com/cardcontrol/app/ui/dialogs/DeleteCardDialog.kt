@@ -80,7 +80,7 @@ fun DeleteCardDialog(
                     containerColor = MaterialTheme.colorScheme.error,
                     contentColor = MaterialTheme.colorScheme.onError
                 ),
-                shape = CcShapes.chip
+                shape = CcShapes.button
             ) {
                 Text(
                     text = "Excluir",

@@ -45,3 +45,10 @@ __pycache__/
 
 # Tooling and session artifacts
 .github/context-mode/
+.claude/
+.continue/
+.hermes/
+.maestri/
+.trae/
+.agents/screenshots/
+.agents/ui_*.xml

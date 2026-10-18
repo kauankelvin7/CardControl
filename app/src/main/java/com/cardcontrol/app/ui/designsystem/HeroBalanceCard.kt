@@ -18,12 +18,14 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+
 
 /**
  * HeroBalanceCard — Cartão Principal da Fatura (Etapa 5.10).
  *
- * Resolve P3: Os botões Abater/Pix e Compartilhar são secundários tonais,
+ * Os botões Registrar pagamento e Compartilhar são secundários tonais,
  * deixando o FAB Menu como único primário evidente na tela.
  */
 
@@ -35,7 +37,7 @@ fun HeroBalanceCard(
     closingAndDueDateText: String,
     usedLimitCents: Long,
     totalLimitCents: Long,
-    onAbaterClick: () -> Unit,
+    onRegisterPaymentClick: () -> Unit,
     onShareClick: () -> Unit,
     modifier: Modifier = Modifier,
     hidden: Boolean = false
@@ -43,9 +45,9 @@ fun HeroBalanceCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .clip(RoundedCornerShape(24.dp))
+            .clip(CcShapes.panel)
             .background(CCTheme.colors.surface1)
-            .border(1.dp, CCTheme.colors.outlineSubtle, RoundedCornerShape(24.dp))
+            .border(1.dp, CCTheme.colors.outlineSubtle, CcShapes.panel)
             .padding(20.dp),
         verticalArrangement = Arrangement.spacedBy(14.dp)
     ) {
@@ -62,9 +64,9 @@ fun HeroBalanceCard(
 
             Box(
                 modifier = Modifier
-                    .clip(CircleShape)
+                    .clip(RoundedCornerShape(8.dp))
                     .background(CCTheme.colors.successContainer)
-                    .padding(horizontal = 10.dp, vertical = 3.dp)
+                    .padding(horizontal = 10.dp, vertical = 4.dp)
             ) {
                 Text(
                     text = "● $statusText",
@@ -93,25 +95,27 @@ fun HeroBalanceCard(
             hidden = hidden
         )
 
-        // Ações Secundárias Tonais (P3)
+        // Ações Secundárias Tonais
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
             FilledTonalButton(
-                onClick = onAbaterClick,
+                onClick = onRegisterPaymentClick,
                 modifier = Modifier
                     .weight(1f)
-                    .height(40.dp),
-                shape = CircleShape,
+                    .height(42.dp),
+                shape = CcShapes.button,
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = CCTheme.colors.surface2,
                     contentColor = CCTheme.colors.textPrimary
                 )
             ) {
                 Text(
-                    text = "Registrar Pagamento",
-                    style = CCTheme.typography.labelMd
+                    text = "Pagar",
+                    style = CCTheme.typography.labelMd,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
 
@@ -119,8 +123,8 @@ fun HeroBalanceCard(
                 onClick = onShareClick,
                 modifier = Modifier
                     .weight(1f)
-                    .height(40.dp),
-                shape = CircleShape,
+                    .height(42.dp),
+                shape = CcShapes.button,
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = CCTheme.colors.surface2,
                     contentColor = CCTheme.colors.textPrimary
@@ -128,7 +132,9 @@ fun HeroBalanceCard(
             ) {
                 Text(
                     text = "Compartilhar",
-                    style = CCTheme.typography.labelMd
+                    style = CCTheme.typography.labelMd,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
             }
         }

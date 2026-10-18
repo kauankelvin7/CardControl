@@ -185,26 +185,27 @@ fun <T> LiquidPillSelector(
     ) {
         options.forEach { (id, label) ->
             val isSelected = id == selectedId
+            val shape = RoundedCornerShape(10.dp)
             Box(
                 modifier = Modifier
-                    .clip(CircleShape)
+                    .clip(shape)
                     .background(
-                        if (isSelected) MaterialTheme.colorScheme.primaryContainer
-                        else MaterialTheme.colorScheme.surfaceContainerHigh
+                        if (isSelected) MaterialTheme.colorScheme.primary
+                        else MaterialTheme.colorScheme.surfaceContainerLow
                     )
                     .border(
                         width = 1.dp,
                         color = if (isSelected) MaterialTheme.colorScheme.primary
-                        else MaterialTheme.colorScheme.outlineVariant,
-                        shape = CircleShape
+                        else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                        shape = shape
                     )
                     .clickable { onSelect(id) }
-                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                    .padding(horizontal = 14.dp, vertical = 9.dp),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = label,
-                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimary
                     else MaterialTheme.colorScheme.onSurfaceVariant,
                     style = MaterialTheme.typography.labelMedium,
                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium

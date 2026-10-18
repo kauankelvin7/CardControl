@@ -14,10 +14,12 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+import com.cardcontrol.app.ui.designsystem.CcShapes
+
 /**
- * Campo de texto estilizado com a paleta Vitrine.
+ * Campo de texto estilizado com a paleta Vitrine e geometria editorial Leve.
  *
- * Usa tokens do tema para manter o contraste em temas claro e escuro. A altura mínima de 58dp garante
+ * Usa tokens do tema para manter o contraste em temas claro e escuro. A altura mínima de 56dp garante
  * que o texto de suporte e rótulos flutuantes não sofram cortes verticais.
  */
 @Composable
@@ -38,18 +40,18 @@ fun GlassTextField(
         value = value,
         onValueChange = onValueChange,
         label = { Text(label) },
-        placeholder = placeholder?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant) } },
+        placeholder = placeholder?.let { { Text(it, color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.8f)) } },
         supportingText = supportingText?.let { { Text(it, style = MaterialTheme.typography.labelSmall.copy(fontSize = 12.sp, color = MaterialTheme.colorScheme.onSurfaceVariant)) } },
         leadingIcon = leadingIcon,
         trailingIcon = trailingIcon,
         keyboardOptions = keyboardOptions,
         visualTransformation = visualTransformation,
         singleLine = singleLine,
-        modifier = modifier.fillMaxWidth().heightIn(min = 58.dp),
-        shape = RoundedCornerShape(14.dp),
+        modifier = modifier.fillMaxWidth().heightIn(min = 56.dp),
+        shape = CcShapes.field,
         colors = OutlinedTextFieldDefaults.colors(
             focusedBorderColor = MaterialTheme.colorScheme.primary,
-            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant,
+            unfocusedBorderColor = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.6f),
             focusedLabelColor = MaterialTheme.colorScheme.primary,
             unfocusedLabelColor = MaterialTheme.colorScheme.onSurfaceVariant,
             focusedTextColor = MaterialTheme.colorScheme.onSurface,

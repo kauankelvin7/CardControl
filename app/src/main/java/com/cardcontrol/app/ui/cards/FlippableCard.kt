@@ -9,15 +9,22 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import com.cardcontrol.app.ui.designsystem.CcMotion
 import com.cardcontrol.app.ui.designsystem.LocalCcReduceMotion
+import kotlin.math.PI
+import kotlin.math.sin
 
 /**
  * Cartão com efeito Flip 3D no eixo Y (C3 e D2.3).
@@ -26,6 +33,7 @@ import com.cardcontrol.app.ui.designsystem.LocalCcReduceMotion
  * 1. Apenas uma face existe na composição por vez (showBack derivado de rotation > 90f).
  * 2. O verso recebe contrarrotação de 180° para nunca renderizar espelhado.
  * 3. Com Movimento Reduzido ativado, desativa o giro 3D e realiza transição suave por Crossfade.
+ * 4. Dinâmica física de elevação 3D: pop-out no eixo Z no ápice do giro com feedback háptico.
  */
 @Composable
 fun FlippableCard(
@@ -38,6 +46,7 @@ fun FlippableCard(
 ) {
     val reduceMotion = LocalCcReduceMotion.current
     val density = LocalDensity.current.density
+    val haptic = LocalHapticFeedback.current
 
     if (reduceMotion) {
         // Modo Acessível de Movimento Reduzido: Fade cruzado sem rotação física
@@ -61,7 +70,17 @@ fun FlippableCard(
             }
         }
     } else {
-        // Modo Normal: Flip 3D no eixo Y com câmera a 16 * density
+        var isFirstComposition by remember { mutableStateOf(true) }
+        // Dispara micro-tick háptico tátil apenas ao iniciar ou completar a virada (não na montagem inicial)
+        LaunchedEffect(flipped) {
+            if (isFirstComposition) {
+                isFirstComposition = false
+            } else {
+                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+            }
+        }
+
+        // Modo Normal: Flip 3D no eixo Y com câmera a 18 * density e pop-out no ápice do giro
         val rotation by animateFloatAsState(
             targetValue = if (flipped) 180f else 0f,
             animationSpec = CcMotion.spatialDefault(),
@@ -70,11 +89,16 @@ fun FlippableCard(
 
         val showBack by remember { derivedStateOf { rotation > 90f } }
 
+        // Dinâmica física de elevação 3D: o cartão ganha até 5.5% de projeção no ápice (90°)
+        val zPopScale = 1f + 0.055f * sin((rotation * PI / 180.0).toFloat()).coerceIn(0f, 1f)
+
         Box(
             modifier = modifier
                 .graphicsLayer {
                     rotationY = rotation
-                    cameraDistance = 16f * density
+                    scaleX = zPopScale
+                    scaleY = zPopScale
+                    cameraDistance = 18f * density
                 }
                 .clickable(
                     role = if (isSelected) Role.Button else null,

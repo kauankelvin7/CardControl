@@ -59,6 +59,7 @@ fun PaymentDialog(
 
     var amount by remember { mutableStateOf("") }
     var notes by remember { mutableStateOf("") }
+    var formError by remember { mutableStateOf<String?>(null) }
     var selectedHolderId by remember { mutableLongStateOf(holders.first().id) }
     var selectedCardId by remember { mutableStateOf(cards.firstOrNull()?.id) }
 
@@ -72,7 +73,7 @@ fun PaymentDialog(
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(Icons.Default.Payments, null, tint = CCTheme.extras.semantics.success)
                 Spacer(Modifier.width(8.dp))
-                Text("Registrar Abatimento / Pix", fontWeight = FontWeight.Bold)
+            Text("Registrar pagamento via Pix", fontWeight = FontWeight.Bold)
             }
         },
         text = {
@@ -82,7 +83,10 @@ fun PaymentDialog(
                     LiquidPillSelector(
                         options = holders.map { it.id to it.name },
                         selectedId = selectedHolderId,
-                        onSelect = { selectedHolderId = it }
+                        onSelect = {
+                            selectedHolderId = it
+                            formError = null
+                        }
                     )
                 }
                 if (cards.isNotEmpty()) {
@@ -91,13 +95,19 @@ fun PaymentDialog(
                         LiquidPillSelector(
                             options = cards.map { it.id to it.name },
                             selectedId = selectedCardId,
-                            onSelect = { selectedCardId = it }
+                            onSelect = {
+                                selectedCardId = it
+                                formError = null
+                            }
                         )
                     }
                 }
                 GlassTextField(
                     value = amount,
-                    onValueChange = { amount = it },
+                    onValueChange = {
+                        amount = it
+                        formError = null
+                    },
                     label = "Valor Recebido (R$)",
                     placeholder = "0,00",
                     leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = CCTheme.extras.semantics.success) },
@@ -105,12 +115,18 @@ fun PaymentDialog(
                 )
                 GlassTextField(
                     value = notes,
-                    onValueChange = { notes = it },
+                    onValueChange = {
+                        notes = it
+                        formError = null
+                    },
                     label = "Observação",
                     placeholder = "Ex: Pix fatura adiantada",
                     leadingIcon = { Icon(Icons.Default.EditNote, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done)
                 )
+                formError?.let { message ->
+                    Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         dismissButton = {
@@ -123,7 +139,10 @@ fun PaymentDialog(
                 onClick = {
                     val v = MoneyUtils.parseToCents(amount) ?: 0L
                     if (v > 0L) {
+                        formError = null
                         onConfirm(selectedHolderId, selectedCardId, v, notes)
+                    } else {
+                        formError = "Informe um valor maior que R$ 0,00."
                     }
                 },
                 colors = ButtonDefaults.buttonColors(
@@ -132,7 +151,7 @@ fun PaymentDialog(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Abater", fontWeight = FontWeight.Bold)
+                Text("Registrar pagamento", fontWeight = FontWeight.Bold)
             }
         }
     )

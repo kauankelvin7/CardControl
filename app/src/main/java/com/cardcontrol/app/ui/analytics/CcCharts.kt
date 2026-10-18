@@ -106,6 +106,18 @@ fun CcBarChart(
                 val bottomAxisY = h - 22.dp.toPx()
                 val chartHeight = bottomAxisY - 16.dp.toPx()
 
+                // Linhas de grade horizontais sutis para profundidade de gráfico fintech
+                val gridLines = 3
+                for (g in 1..gridLines) {
+                    val gridY = bottomAxisY - (chartHeight * (g.toFloat() / (gridLines + 1)))
+                    drawLine(
+                        color = subtleColor.copy(alpha = 0.20f),
+                        start = Offset(0f, gridY),
+                        end = Offset(w, gridY),
+                        strokeWidth = 1.dp.toPx()
+                    )
+                }
+
                 // Linha de base horizontal sutil
                 drawLine(
                     color = subtleColor.copy(alpha = 0.5f),
@@ -114,7 +126,7 @@ fun CcBarChart(
                     strokeWidth = 1.dp.toPx()
                 )
 
-                // Renderiza cada barra mensal
+                // Renderiza cada barra mensal com gradientes luminosos e cantos arredondados
                 for (i in 0 until count) {
                     val item = data[i]
                     val isSelected = (selectedIndex == i)
@@ -126,19 +138,42 @@ fun CcBarChart(
 
                     val topY = bottomAxisY - barHeight.coerceAtLeast(4.dp.toPx())
 
-                    val barColor = if (isSelected) {
-                        primaryColor
-                    } else {
-                        primaryColor.copy(alpha = 0.45f)
-                    }
+                    val barBrush = androidx.compose.ui.graphics.Brush.verticalGradient(
+                        colors = if (isSelected) {
+                            listOf(
+                                primaryColor,
+                                primaryColor.copy(alpha = 0.65f)
+                            )
+                        } else {
+                            listOf(
+                                primaryColor.copy(alpha = 0.45f),
+                                primaryColor.copy(alpha = 0.12f)
+                            )
+                        },
+                        startY = topY,
+                        endY = bottomAxisY
+                    )
 
-                    // Barra com cantos superiores arredondados
+                    val barCornerRadius = (barWidth / 3f).coerceAtMost(8.dp.toPx())
+
+                    // Barra com cantos superiores arredondados e gradiente suave
                     drawRoundRect(
-                        color = barColor,
+                        brush = barBrush,
                         topLeft = Offset(centerX - (barWidth / 2f), topY),
                         size = Size(barWidth, bottomAxisY - topY),
-                        cornerRadius = CornerRadius(4.dp.toPx(), 4.dp.toPx())
+                        cornerRadius = CornerRadius(barCornerRadius, barCornerRadius)
                     )
+
+                    // Destaque superior luminoso na barra ativa
+                    if (isSelected && barHeight > 6.dp.toPx()) {
+                        drawLine(
+                            color = Color.White.copy(alpha = 0.70f),
+                            start = Offset(centerX - (barWidth / 2f) + 2.dp.toPx(), topY + 1.dp.toPx()),
+                            end = Offset(centerX + (barWidth / 2f) - 2.dp.toPx(), topY + 1.dp.toPx()),
+                            strokeWidth = 1.5.dp.toPx(),
+                            cap = StrokeCap.Round
+                        )
+                    }
 
                     // Ponto indicador sob a barra selecionada
                     if (isSelected) {
@@ -189,12 +224,12 @@ fun CcDonutChart(
 ) {
     if (categories.isEmpty() || totalCents <= 0L) return
 
-    val strokeWidth = 24.dp
+    val strokeWidth = 18.dp
     val gapAngle = 2.5f
 
     Box(
         modifier = modifier
-            .size(190.dp)
+            .size(155.dp)
             .semantics {
                 contentDescription = "Gráfico de rosca de distribuição por categorias"
             },
@@ -219,7 +254,7 @@ fun CcDonutChart(
                         var hitCategory: SpendingCategory? = null
 
                         for (item in categories) {
-                            val sweep = (item.percentage * 360f).coerceAtLeast(1f)
+        val sweep = (item.percentageBps / 10_000f * 360f).coerceAtLeast(1f)
                             val start = (cumulative - 90f + 360f) % 360f
                             val end = (start + sweep) % 360f
 
@@ -249,13 +284,27 @@ fun CcDonutChart(
             val topLeft = Offset((w - diameter) / 2f, (h - diameter) / 2f)
             val arcSize = Size(diameter, diameter)
 
+            // Iluminação ambiente sutil no miolo do Donut ao selecionar categoria
+            val activeColor = categories.firstOrNull { it.category == selectedCategory }?.category?.color
+            if (activeColor != null) {
+                drawCircle(
+                    brush = androidx.compose.ui.graphics.Brush.radialGradient(
+                        colors = listOf(activeColor.copy(alpha = 0.22f), Color.Transparent),
+                        center = Offset(w / 2f, h / 2f),
+                        radius = (diameter / 2f) * 0.85f
+                    ),
+                    center = Offset(w / 2f, h / 2f),
+                    radius = (diameter / 2f) * 0.85f
+                )
+            }
+
             var startAngle = -90f
 
             for (item in categories) {
-                val sweep = (item.percentage * 360f) - gapAngle
+        val sweep = (item.percentageBps / 10_000f * 360f) - gapAngle
                 val isSelected = (selectedCategory == item.category)
 
-                val effectiveStroke = if (isSelected) strokePx + 6.dp.toPx() else strokePx
+                val effectiveStroke = if (isSelected) strokePx + 4.dp.toPx() else strokePx
                 val color = if (selectedCategory == null || isSelected) {
                     item.category.color
                 } else {
@@ -272,7 +321,7 @@ fun CcDonutChart(
                     style = Stroke(width = effectiveStroke, cap = StrokeCap.Round)
                 )
 
-                startAngle += (item.percentage * 360f)
+            startAngle += (item.percentageBps / 10_000f * 360f)
             }
         }
 
@@ -280,7 +329,7 @@ fun CcDonutChart(
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
-            modifier = Modifier.padding(28.dp)
+            modifier = Modifier.padding(16.dp)
         ) {
             val activeItem = categories.firstOrNull { it.category == selectedCategory }
             val displayLabel = activeItem?.category?.displayName ?: "Total"
@@ -302,7 +351,7 @@ fun CcDonutChart(
             )
             if (activeItem != null) {
                 Text(
-                    text = "${(activeItem.percentage * 100).toInt()}%",
+        text = "${activeItem.percentageBps / 100}%",
                     style = CcType.cardMeta.copy(fontSize = 10.sp, fontWeight = FontWeight.SemiBold),
                     color = activeItem.category.color
                 )

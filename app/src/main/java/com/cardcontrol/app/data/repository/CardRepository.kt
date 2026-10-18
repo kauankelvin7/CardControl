@@ -32,21 +32,103 @@ class CardRepository(private val dao: AppDao) {
     val cards = dao.observeCards()
     val allInstallments = dao.observeAllInstallments()
     val allPayments = dao.observeAllPayments()
+    val allTransactions = dao.observeAllTransactions()
     val activeRecurringCharges = dao.observeActiveRecurringCharges()
     val allRecurringCharges = dao.observeAllRecurringCharges()
 
     fun observeInstallmentsForMonth(month: Int, year: Int) = dao.observeInstallmentsByPeriod(month, year)
     fun observePaymentsForMonth(month: Int, year: Int) = dao.observePaymentsByPeriod(month, year)
 
-    suspend fun addHolder(name: String, whatsapp: String, email: String, subLimit: Long) {
+    suspend fun addHolder(name: String, whatsapp: String, email: String, subLimit: Long): Boolean {
+        val safeName = SecuritySanitizer.sanitizeHeaderField(name, 50)
+        if (safeName.isBlank()) return false
+        val safeWhats = whatsapp.filter { it.isDigit() }.take(15)
+        val safeEmail = email.trim().take(80)
+        val safeLimit = SecuritySanitizer.validateLimitAmount(subLimit)
+
+        val normalized = safeName.trim().lowercase()
+        val existing = dao.getAllHoldersSnapshot().firstOrNull {
+            it.name.trim().lowercase() == normalized
+        }
+        if (existing != null) {
+            dao.updateHolder(
+                existing.copy(
+                    name = safeName,
+                    whatsapp = safeWhats.ifBlank { existing.whatsapp },
+                    email = safeEmail.ifBlank { existing.email },
+                    subLimit = if (safeLimit > 0L) safeLimit else existing.subLimit
+                )
+            )
+            return false
+        }
+
         dao.insertHolder(
             HolderEntity(
-                name = SecuritySanitizer.sanitizeHeaderField(name, 50),
-                whatsapp = whatsapp.filter { it.isDigit() }.take(15),
-                email = email.trim().take(80),
-                subLimit = SecuritySanitizer.validateLimitAmount(subLimit)
+                name = safeName,
+                whatsapp = safeWhats,
+                email = safeEmail,
+                subLimit = safeLimit
             )
         )
+        return true
+    }
+
+    suspend fun updateHolder(
+        holderId: Long,
+        name: String,
+        whatsapp: String,
+        email: String,
+        subLimit: Long
+    ): Boolean {
+        val existing = dao.getHolderById(holderId) ?: return false
+        val safeName = SecuritySanitizer.sanitizeHeaderField(name, 50)
+        if (safeName.isBlank()) return false
+        val normalized = safeName.trim().lowercase()
+        val duplicateOther = dao.getAllHoldersSnapshot().any {
+            it.id != holderId && it.name.trim().lowercase() == normalized
+        }
+        if (duplicateOther) return false
+
+        val updated = existing.copy(
+            name = safeName,
+            whatsapp = whatsapp.filter { it.isDigit() }.take(15),
+            email = email.trim().take(80),
+            subLimit = SecuritySanitizer.validateLimitAmount(subLimit)
+        )
+        return dao.updateHolder(updated) > 0
+    }
+
+    suspend fun deleteHolderIfUnused(holderId: Long): Boolean = expenseMutex.withLock {
+        dao.safeDeleteHolderIfUnused(holderId) > 0
+    }
+
+    suspend fun deleteHolder(holderId: Long): Boolean {
+        return deleteHolderIfUnused(holderId)
+    }
+
+    suspend fun deleteTransaction(transactionId: Long): Boolean = expenseMutex.withLock {
+        val deleted = dao.deleteTransactionWithInstallments(transactionId) > 0
+        if (deleted) syncRecurringCharges()
+        deleted
+    }
+
+    suspend fun sanitizeDuplicateHolders(): Int = expenseMutex.withLock {
+        val all = dao.getAllHoldersSnapshot()
+        val duplicateGroups = all
+            .groupBy { it.name.trim().lowercase() }
+            .values
+            .filter { it.size > 1 }
+        var removedCount = 0
+        for (group in duplicateGroups) {
+            val sorted = group.sortedBy { it.id }
+            val canonical = sorted.first()
+            for (dup in sorted.drop(1)) {
+                if (dao.mergeDuplicateHolder(dup.id, canonical.id) > 0) {
+                    removedCount++
+                }
+            }
+        }
+        removedCount
     }
 
     suspend fun addCard(
@@ -333,7 +415,7 @@ class CardRepository(private val dao: AppDao) {
         refMonth: Int,
         refYear: Int,
         notes: String
-    ) {
+    ): Long = expenseMutex.withLock {
         val validAmount = SecuritySanitizer.validateFinancialAmount(amountPaid)
         dao.insertPayment(
             PaymentEntity(

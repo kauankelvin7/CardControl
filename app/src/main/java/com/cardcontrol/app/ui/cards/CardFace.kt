@@ -1,7 +1,10 @@
 package com.cardcontrol.app.ui.cards
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -149,6 +152,45 @@ fun CardFace(
                 accentColor = visual.accentColor
             )
 
+            // Reflexo holográfico iridescente de alto padrão com bisel especular
+            Canvas(modifier = Modifier.fillMaxSize()) {
+                val w = size.width
+                val h = size.height
+
+                // Borda de chanfro especular superior e esquerda (profundidade física do plástico laminado)
+                drawLine(
+                    brush = Brush.horizontalGradient(
+                        listOf(Color.White.copy(alpha = 0.38f), Color.White.copy(alpha = 0.12f), Color.Transparent)
+                    ),
+                    start = Offset(0f, 0.5f),
+                    end = Offset(w, 0.5f),
+                    strokeWidth = 1.2.dp.toPx()
+                )
+                drawLine(
+                    brush = Brush.verticalGradient(
+                        listOf(Color.White.copy(alpha = 0.38f), Color.White.copy(alpha = 0.08f), Color.Transparent)
+                    ),
+                    start = Offset(0.5f, 0f),
+                    end = Offset(0.5f, h),
+                    strokeWidth = 1.2.dp.toPx()
+                )
+
+                // Feixe holográfico iridescente transversal (efeito foil/metalizado)
+                val holoBrush = Brush.linearGradient(
+                    colors = listOf(
+                        Color.Transparent,
+                        Color(0x1870E0FF), // Ciano iridescente
+                        Color(0x28FFFFFF), // Specular puro
+                        Color(0x20FF70E0), // Magenta iridescente
+                        Color(0x12FFDF7A), // Ouro sutil
+                        Color.Transparent
+                    ),
+                    start = Offset(w * 0.18f, 0f),
+                    end = Offset(w * 0.82f, h)
+                )
+                drawRect(brush = holoBrush)
+            }
+
             Column(
                 modifier = Modifier
                     .fillMaxSize()
@@ -200,16 +242,19 @@ fun CardFace(
                                 ) {
                                     Box(
                                         modifier = Modifier
-                                            .size(16.dp)
+                                            .size(18.dp)
                                             .clip(CircleShape)
-                                            .background(Color.White.copy(alpha = 0.18f)),
+                                            .background(Color.White.copy(alpha = 0.22f)),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         val initial = card.holderName.firstOrNull()?.uppercase() ?: "T"
                                         Text(
                                             text = initial,
-                                            fontSize = 9.sp,
-                                            fontWeight = FontWeight.Bold,
+                                            style = CcType.cardMeta.copy(
+                                                fontSize = 9.sp,
+                                                lineHeight = 9.sp,
+                                                fontWeight = FontWeight.ExtraBold
+                                            ),
                                             color = Color.White
                                         )
                                     }
@@ -241,11 +286,12 @@ fun CardFace(
                                 modifier = Modifier
                                     .size(36.dp)
                                     .clip(CircleShape)
-                                    .background(Color.White.copy(alpha = 0.14f))
+                                    .background(Color.White.copy(alpha = 0.16f))
+                                    .border(1.dp, Color.White.copy(alpha = 0.32f), CircleShape)
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Sync,
-                                    contentDescription = "Virar cartão",
+                                    contentDescription = "Virar cartão para ver detalhes",
                                     tint = Color.White,
                                     modifier = Modifier.size(18.dp)
                                 )

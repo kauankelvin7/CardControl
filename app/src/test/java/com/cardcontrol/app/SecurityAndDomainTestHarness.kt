@@ -16,6 +16,8 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.*
@@ -31,15 +33,73 @@ private class FakeAppDao : AppDao {
     val payments = Collections.synchronizedList(mutableListOf<PaymentEntity>())
 
     override suspend fun insertHolder(holder: HolderEntity): Long = synchronized(holders) {
-        holders.add(holder)
-        holders.size.toLong()
+        val assignedId = if (holder.id == 0L) (holders.maxOfOrNull { it.id } ?: 0L) + 1L else holder.id
+        holders.add(holder.copy(id = assignedId))
+        assignedId
     }
     override fun observeHolders(): Flow<List<HolderEntity>> = synchronized(holders) { flowOf(holders.toList()) }
     override suspend fun getHolderById(id: Long): HolderEntity? = synchronized(holders) { holders.find { it.id == id } }
+    override suspend fun getAllHoldersSnapshot(): List<HolderEntity> = synchronized(holders) { holders.toList() }
+    override suspend fun updateHolder(holder: HolderEntity): Int = synchronized(holders) {
+        val index = holders.indexOfFirst { it.id == holder.id }
+        if (index < 0) 0 else {
+            holders[index] = holder
+            1
+        }
+    }
+    override suspend fun reassignCardsDefaultHolder(oldHolderId: Long, newHolderId: Long?) {
+        synchronized(cards) {
+            for (i in cards.indices) {
+                if (cards[i].defaultHolderId == oldHolderId) {
+                    cards[i] = cards[i].copy(defaultHolderId = newHolderId)
+                }
+            }
+        }
+    }
+    override suspend fun reassignTransactionsHolder(oldHolderId: Long, newHolderId: Long) {
+        synchronized(transactions) {
+            for (i in transactions.indices) {
+                if (transactions[i].holderId == oldHolderId) transactions[i] = transactions[i].copy(holderId = newHolderId)
+            }
+        }
+    }
+    override suspend fun reassignInstallmentsHolder(oldHolderId: Long, newHolderId: Long) {
+        synchronized(installments) {
+            for (i in installments.indices) {
+                if (installments[i].holderId == oldHolderId) installments[i] = installments[i].copy(holderId = newHolderId)
+            }
+        }
+    }
+    override suspend fun reassignPaymentsHolder(oldHolderId: Long, newHolderId: Long) {
+        synchronized(payments) {
+            for (i in payments.indices) {
+                if (payments[i].holderId == oldHolderId) payments[i] = payments[i].copy(holderId = newHolderId)
+            }
+        }
+    }
+    override suspend fun reassignRecurringChargesHolder(oldHolderId: Long, newHolderId: Long) {
+        synchronized(recurringCharges) {
+            for (i in recurringCharges.indices) {
+                if (recurringCharges[i].holderId == oldHolderId) recurringCharges[i] = recurringCharges[i].copy(holderId = newHolderId)
+            }
+        }
+    }
+    override suspend fun deleteHolderIfUnused(id: Long): Int {
+        val hasTransactions = synchronized(transactions) { transactions.any { it.holderId == id } }
+        val hasInstallments = synchronized(installments) { installments.any { it.holderId == id } }
+        val hasPayments = synchronized(payments) { payments.any { it.holderId == id } }
+        val hasRecurring = synchronized(recurringCharges) { recurringCharges.any { it.holderId == id } }
+        if (hasTransactions || hasInstallments || hasPayments || hasRecurring) return 0
+        return synchronized(holders) { if (holders.removeAll { it.id == id }) 1 else 0 }
+    }
+
+    @Deprecated("No-op", ReplaceWith("safeDeleteHolderIfUnused(id)"))
+    override suspend fun deleteHolderById(id: Long): Int = 0
 
     override suspend fun insertCard(card: CreditCardEntity): Long = synchronized(cards) {
-        cards.add(card)
-        cards.size.toLong()
+        val assignedId = if (card.id == 0L) (cards.maxOfOrNull { it.id } ?: 0L) + 1L else card.id
+        cards.add(card.copy(id = assignedId))
+        assignedId
     }
     override fun observeCards(): Flow<List<CreditCardEntity>> = synchronized(cards) { flowOf(cards.toList()) }
     override suspend fun getAllCardsSnapshot(): List<CreditCardEntity> = synchronized(cards) { cards.toList() }
@@ -55,16 +115,34 @@ private class FakeAppDao : AppDao {
         val hasTransactions = synchronized(transactions) { transactions.any { it.cardId == id } }
         val hasInstallments = synchronized(installments) { installments.any { it.cardId == id } }
         val hasPayments = synchronized(payments) { payments.any { it.cardId == id } }
-        if (hasTransactions || hasInstallments || hasPayments) return 0
+        val hasRecurring = synchronized(recurringCharges) { recurringCharges.any { it.cardId == id } }
+        if (hasTransactions || hasInstallments || hasPayments || hasRecurring) return 0
         return synchronized(cards) { if (cards.removeAll { it.id == id }) 1 else 0 }
     }
 
     override suspend fun insertTransaction(tx: TransactionEntity): Long = synchronized(transactions) {
-        transactions.add(tx)
-        transactions.size.toLong()
+        val id = if (tx.id == 0L) (transactions.maxOfOrNull { it.id } ?: 0L) + 1L else tx.id
+        transactions.add(tx.copy(id = id))
+        id
     }
     override suspend fun insertInstallments(installments: List<InstallmentEntity>) {
-        this.installments.addAll(installments)
+        synchronized(this.installments) {
+            var nextId = (this.installments.maxOfOrNull { it.id } ?: 0L) + 1L
+            installments.forEach { inst ->
+                val assignedId = if (inst.id == 0L) nextId++ else inst.id
+                this.installments.add(inst.copy(id = assignedId))
+            }
+        }
+    }
+    override suspend fun deleteInstallmentsByTransaction(transactionId: Long) {
+        synchronized(installments) { installments.removeAll { it.transactionId == transactionId } }
+    }
+    override suspend fun deleteTransactionById(transactionId: Long): Int = synchronized(transactions) {
+        if (transactions.removeAll { it.id == transactionId }) 1 else 0
+    }
+    override suspend fun deleteTransactionWithInstallments(transactionId: Long): Int {
+        deleteInstallmentsByTransaction(transactionId)
+        return deleteTransactionById(transactionId)
     }
     override suspend fun countRecentDuplicate(hash: String, minTimestamp: Long): Int = synchronized(transactions) {
         transactions.count { it.dedupHash == hash && it.purchaseTimestamp >= minTimestamp }
@@ -145,6 +223,9 @@ private class FakeAppDao : AppDao {
 
     override suspend fun getAllTransactionsSnapshot(): List<TransactionEntity> = synchronized(transactions) {
         transactions.toList().sortedBy { it.purchaseTimestamp }
+    }
+    override fun observeAllTransactions(): Flow<List<TransactionEntity>> = synchronized(transactions) {
+        flowOf(transactions.toList())
     }
 
     override suspend fun getTotalActiveRecurringAmount(): Long = synchronized(recurringCharges) {
@@ -668,7 +749,7 @@ class SecurityAndDomainTestHarness {
     fun `harness deve permitir corrigir cartao e trocar pessoa vinculada`() = runBlocking {
         val fakeDao = FakeAppDao()
         fakeDao.holders.add(
-            HolderEntity(id = 2L, name = "Jheymison", whatsapp = "", email = "", subLimit = 200000L)
+            HolderEntity(id = 2L, name = "Lucas", whatsapp = "", email = "", subLimit = 200000L)
         )
         fakeDao.cards.add(
             CreditCardEntity(
@@ -912,5 +993,275 @@ class SecurityAndDomainTestHarness {
         assertEquals("Corporativo C6 Carbon", refreshed?.name)
         assertEquals("c6", refreshed?.bank)
         assertEquals(900000L, refreshed?.totalLimit)
+    }
+
+    @Test
+    fun testHolderCrudAndDeduplication_updatesDeletesAndMergesDuplicatesSafely() = runBlocking {
+        val dao = FakeAppDao()
+        val repo = CardRepository(dao)
+
+        // 1. Criação inicial
+        assertTrue(repo.addHolder("Lucas", "11999998888", "lucas@test.com", 100_000L))
+        assertEquals(1, dao.holders.size)
+        val firstId = dao.holders.single().id
+
+        // 2. Tentativa de duplicata com mesmo nome (case-insensitive) atualiza em vez de duplicar
+        assertFalse(repo.addHolder("  lucas  ", "11977776666", "", 250_000L))
+        assertEquals(1, dao.holders.size)
+        assertEquals(250_000L, dao.holders.single().subLimit)
+
+        // 3. Edição direta
+        assertTrue(repo.updateHolder(firstId, "Lucas Silva", "11911112222", "novo@test.com", 300_000L))
+        assertEquals("Lucas Silva", dao.getHolderById(firstId)?.name)
+
+        // 4. Saneamento de duplicatas pré-existentes no banco e reatribuição de cartão
+        val dupId = dao.insertHolder(HolderEntity(id = 2L, name = "lucas silva", whatsapp = ""))
+        dao.insertCard(
+            CreditCardEntity(
+                id = 10L,
+                name = "Banco Inter",
+                bank = SupportedBank.INTER.id,
+                lastFourDigits = "0359",
+                totalLimit = 485_000L,
+                closingDay = 9,
+                dueDay = 15,
+                defaultHolderId = dupId
+            )
+        )
+        val removed = repo.sanitizeDuplicateHolders()
+        assertEquals(1, removed)
+        assertEquals(1, dao.holders.size)
+        assertEquals(firstId, dao.getCardById(10L)?.defaultHolderId)
+
+        // 5. Exclusão de pessoa sem compras desvincula defaultHolderId do cartão e remove pessoa
+        assertTrue(repo.deleteHolderIfUnused(firstId))
+        assertTrue(dao.holders.isEmpty())
+        assertNull(dao.getCardById(10L)?.defaultHolderId)
+    }
+
+    @Test
+    fun testSanitizeDuplicateHolders_reassignsHistoryForBothHoldersBeforeDelete() = runBlocking {
+        val dao = FakeAppDao()
+        val repo = CardRepository(dao)
+        dao.insertHolder(HolderEntity(id = 1L, name = "Lucas", whatsapp = ""))
+        dao.insertHolder(HolderEntity(id = 2L, name = " lucas ", whatsapp = ""))
+        dao.insertCard(CreditCardEntity(id = 1L, name = "Canonical", lastFourDigits = "1111", totalLimit = 100_000L, closingDay = 10, dueDay = 17, defaultHolderId = 1L))
+        dao.insertCard(CreditCardEntity(id = 2L, name = "Duplicate", lastFourDigits = "2222", totalLimit = 100_000L, closingDay = 10, dueDay = 17, defaultHolderId = 2L))
+        dao.transactions += TransactionEntity(id = 1L, cardId = 1L, holderId = 1L, merchant = "Compra A", totalAmount = 10_000L)
+        dao.transactions += TransactionEntity(id = 2L, cardId = 2L, holderId = 2L, merchant = "Compra B", totalAmount = 20_000L)
+        dao.installments += InstallmentEntity(id = 1L, transactionId = 1L, holderId = 1L, cardId = 1L, merchantSnapshot = "Compra A", installmentNumber = 1, totalInstallments = 1, amount = 10_000L, refMonth = 10, refYear = 2026, purchaseTimestamp = 1L)
+        dao.installments += InstallmentEntity(id = 2L, transactionId = 2L, holderId = 2L, cardId = 2L, merchantSnapshot = "Compra B", installmentNumber = 1, totalInstallments = 1, amount = 20_000L, refMonth = 10, refYear = 2026, purchaseTimestamp = 2L)
+        dao.payments += PaymentEntity(id = 1L, holderId = 2L, cardId = 2L, amountPaid = 5_000L, refMonth = 10, refYear = 2026)
+        dao.recurringCharges += com.cardcontrol.app.data.local.RecurringChargeEntity(id = 1L, cardId = 2L, holderId = 2L, merchant = "Streaming", expectedAmount = 2_000L, lastAmount = 2_000L)
+
+        assertEquals(1, repo.sanitizeDuplicateHolders())
+        assertEquals(listOf(1L), dao.holders.map { it.id })
+        assertTrue(dao.transactions.all { it.holderId == 1L })
+        assertTrue(dao.installments.all { it.holderId == 1L })
+        assertTrue(dao.payments.all { it.holderId == 1L })
+        assertTrue(dao.recurringCharges.all { it.holderId == 1L })
+        assertTrue(dao.cards.all { it.defaultHolderId == 1L })
+    }
+
+    @Test
+    fun testDeleteHolderIfUnused_blocksDeletionWhenHolderHasTransactions() = runBlocking {
+        val dao = FakeAppDao()
+        val repo = CardRepository(dao)
+        val holderId = dao.insertHolder(HolderEntity(id = 1L, name = "Titular Com Compras", whatsapp = ""))
+        val cardId = dao.insertCard(
+            CreditCardEntity(
+                id = 1L,
+                name = "Nubank",
+                bank = SupportedBank.NUBANK.id,
+                lastFourDigits = "1234",
+                totalLimit = 500_000L,
+                closingDay = 10,
+                dueDay = 17,
+                defaultHolderId = holderId
+            )
+        )
+        repo.registerExpense(cardId, holderId, "Mercado", 15_000L, 1)
+
+        assertFalse(repo.deleteHolderIfUnused(holderId))
+        assertFalse(repo.deleteHolder(holderId))
+        assertNotNull(dao.getHolderById(holderId))
+    }
+
+    @Test
+    fun testDeleteTransaction_removesTransactionAndInstallments() = runBlocking {
+        val dao = FakeAppDao()
+        val repo = CardRepository(dao)
+        val holderId = dao.insertHolder(HolderEntity(id = 1L, name = "Titular", whatsapp = ""))
+        val cardId = dao.insertCard(
+            CreditCardEntity(id = 1L, name = "Inter", lastFourDigits = "1234", totalLimit = 500_000L, closingDay = 10, dueDay = 17, defaultHolderId = holderId)
+        )
+        val transactionId = repo.registerExpense(cardId, holderId, "Notebook", 90_000L, 3)
+
+        assertTrue(transactionId > 0L)
+        assertEquals(transactionId, dao.transactions.single().id)
+        assertEquals(3, dao.installments.size)
+        assertTrue(dao.installments.all { it.transactionId == transactionId && it.id > 0L })
+
+        assertTrue(repo.deleteTransaction(transactionId))
+        assertTrue(dao.transactions.none { it.id == transactionId })
+        assertTrue(dao.installments.none { it.transactionId == transactionId })
+        assertFalse(repo.deleteTransaction(transactionId))
+    }
+
+    @Test
+    fun testDeleteHolder_removesHolderAndUnlinksDefaultCardHolder() = runBlocking {
+        val dao = FakeAppDao()
+        val repo = CardRepository(dao)
+        val holderId = dao.insertHolder(HolderEntity(id = 1L, name = "Titular", whatsapp = ""))
+        val cardId = dao.insertCard(
+            CreditCardEntity(id = 1L, name = "Inter", lastFourDigits = "1234", totalLimit = 500_000L, closingDay = 10, dueDay = 17, defaultHolderId = holderId)
+        )
+
+        assertTrue(repo.deleteHolder(holderId))
+        assertNull(dao.getHolderById(holderId))
+        assertNull(dao.getCardById(cardId)?.defaultHolderId)
+        assertTrue(dao.transactions.none { it.holderId == holderId })
+        assertTrue(dao.installments.none { it.holderId == holderId })
+    }
+
+    @Test
+    fun testDeleteHolder_blockedWhenHolderHasPaymentsOrRecurringCharges() = runBlocking {
+        val dao = FakeAppDao()
+        val repo = CardRepository(dao)
+        val holder1 = dao.insertHolder(HolderEntity(id = 1L, name = "Titular Com Pagamento", whatsapp = ""))
+        val holder2 = dao.insertHolder(HolderEntity(id = 2L, name = "Titular Com Recorrencia", whatsapp = ""))
+        val cardId = dao.insertCard(CreditCardEntity(id = 1L, name = "Card", lastFourDigits = "1234", totalLimit = 500_000L, closingDay = 10, dueDay = 17, defaultHolderId = holder1))
+
+        dao.payments += PaymentEntity(id = 1L, holderId = holder1, cardId = cardId, amountPaid = 5_000L, refMonth = 11, refYear = 2026)
+        dao.recurringCharges += com.cardcontrol.app.data.local.RecurringChargeEntity(id = 1L, cardId = cardId, holderId = holder2, merchant = "Netflix", expectedAmount = 3_990L, lastAmount = 3_990L)
+
+        assertFalse("Não deve permitir excluir titular com pagamento vinculado", repo.deleteHolder(holder1))
+        assertNotNull(dao.getHolderById(holder1))
+        assertEquals(1, dao.payments.size)
+
+        assertFalse("Não deve permitir excluir titular com cobrança recorrente vinculada", repo.deleteHolder(holder2))
+        assertNotNull(dao.getHolderById(holder2))
+        assertEquals(1, dao.recurringCharges.size)
+    }
+
+    @Test
+    fun testDeleteCardIfUnused_blockedWhenCardHasRecurringCharges() = runBlocking {
+        val dao = FakeAppDao()
+        val repo = CardRepository(dao)
+        val holder = dao.insertHolder(HolderEntity(id = 1L, name = "Titular", whatsapp = ""))
+        val cardId = dao.insertCard(CreditCardEntity(id = 1L, name = "Card Recorrente", lastFourDigits = "4321", totalLimit = 500_000L, closingDay = 10, dueDay = 17, defaultHolderId = holder))
+        val emptyCardId = dao.insertCard(CreditCardEntity(id = 2L, name = "Card Vazio", lastFourDigits = "9999", totalLimit = 200_000L, closingDay = 5, dueDay = 15, defaultHolderId = holder))
+
+        dao.recurringCharges += com.cardcontrol.app.data.local.RecurringChargeEntity(id = 1L, cardId = cardId, holderId = holder, merchant = "Spotify", expectedAmount = 2_190L, lastAmount = 2_190L)
+
+        val blocked = repo.deleteCardIfUnused(cardId)
+        assertFalse("Não deve permitir excluir cartão com cobrança recorrente vinculada", blocked)
+        assertNotNull(dao.getCardById(cardId))
+        assertEquals(1, dao.recurringCharges.size)
+
+        val unlinkedDeleted = repo.deleteCardIfUnused(emptyCardId)
+        assertTrue("Deve permitir excluir cartão sem vínculos", unlinkedDeleted)
+        assertNull(dao.getCardById(emptyCardId))
+    }
+
+    @Test
+    fun testSanitizeDuplicateHoldersAndConcurrency_preservesDataIntegrity() = runBlocking {
+        val dao = FakeAppDao()
+        val repo = CardRepository(dao)
+        val h1 = dao.insertHolder(HolderEntity(id = 1L, name = "Carlos Silva", whatsapp = ""))
+        val h2 = dao.insertHolder(HolderEntity(id = 2L, name = " carlos silva ", whatsapp = ""))
+        val cardId = dao.insertCard(CreditCardEntity(id = 1L, name = "Nubank", lastFourDigits = "9999", totalLimit = 500_000L, closingDay = 10, dueDay = 17, defaultHolderId = h2))
+
+        val d1 = async(Dispatchers.Default) {
+            repo.registerExpense(cardId, h2, "Compra Concorrente", 20_000L, 2)
+        }
+        val d2 = async(Dispatchers.Default) {
+            repo.sanitizeDuplicateHolders()
+        }
+        listOf(d1, d2).awaitAll()
+
+        assertEquals(listOf(h1), dao.holders.map { it.id })
+        assertTrue(dao.transactions.all { it.holderId == h1 })
+        assertTrue(dao.installments.all { it.holderId == h1 })
+        assertEquals(h1, dao.getCardById(cardId)?.defaultHolderId)
+    }
+
+    @Test
+    fun testResolveInitialInvoicePeriod_deterministicScenarios() {
+        val refDate = LocalDate.of(2026, 10, 15)
+
+        // 1. Lista vazia -> mantém mês atual (2026-10-01)
+        val emptyResult = com.cardcontrol.app.ui.MainViewModel.resolveInitialInvoicePeriod(refDate, emptyList())
+        assertEquals(LocalDate.of(2026, 10, 1), emptyResult)
+
+        // 2. Com parcelas no mês atual -> mantém mês atual
+        val currentMonthInst = listOf(
+            InstallmentEntity(id = 1L, transactionId = 1L, holderId = 1L, cardId = 1L, merchantSnapshot = "M", installmentNumber = 1, totalInstallments = 1, amount = 1000L, refMonth = 10, refYear = 2026, purchaseTimestamp = 0L)
+        )
+        val currentResult = com.cardcontrol.app.ui.MainViewModel.resolveInitialInvoicePeriod(refDate, currentMonthInst)
+        assertEquals(LocalDate.of(2026, 10, 1), currentResult)
+
+        // 3. Sem parcelas no mês atual, mas com parcelas futuras (Nov/2026 e Dez/2026) -> avança para menor mês futuro
+        val futureMonthInst = listOf(
+            InstallmentEntity(id = 2L, transactionId = 2L, holderId = 1L, cardId = 1L, merchantSnapshot = "M", installmentNumber = 1, totalInstallments = 2, amount = 1000L, refMonth = 12, refYear = 2026, purchaseTimestamp = 0L),
+            InstallmentEntity(id = 3L, transactionId = 3L, holderId = 1L, cardId = 1L, merchantSnapshot = "M", installmentNumber = 1, totalInstallments = 2, amount = 1000L, refMonth = 11, refYear = 2026, purchaseTimestamp = 0L)
+        )
+        val futureResult = com.cardcontrol.app.ui.MainViewModel.resolveInitialInvoicePeriod(refDate, futureMonthInst)
+        assertEquals(LocalDate.of(2026, 11, 1), futureResult)
+
+        // 4. Sem parcelas no mês atual e sem parcelas futuras, apenas passadas (Ago/2026 e Set/2026) -> mantém mês base atual
+        val pastMonthInst = listOf(
+            InstallmentEntity(id = 4L, transactionId = 4L, holderId = 1L, cardId = 1L, merchantSnapshot = "M", installmentNumber = 1, totalInstallments = 1, amount = 1000L, refMonth = 8, refYear = 2026, purchaseTimestamp = 0L),
+            InstallmentEntity(id = 5L, transactionId = 5L, holderId = 1L, cardId = 1L, merchantSnapshot = "M", installmentNumber = 1, totalInstallments = 1, amount = 1000L, refMonth = 9, refYear = 2026, purchaseTimestamp = 0L)
+        )
+        val pastResult = com.cardcontrol.app.ui.MainViewModel.resolveInitialInvoicePeriod(refDate, pastMonthInst)
+        assertEquals(LocalDate.of(2026, 10, 1), pastResult)
+    }
+
+    @Test
+    fun testBuildDashboardUiStateFlow_emitsAlignedFuturePeriodWithoutFlickerAndRespectsManualSelection() = runBlocking {
+        val dao = FakeAppDao()
+        val refDate = LocalDate.of(2026, 10, 15)
+
+        val holderId = dao.insertHolder(HolderEntity(id = 1L, name = "Titular", whatsapp = ""))
+        val cardId = dao.insertCard(CreditCardEntity(id = 1L, name = "Nubank", lastFourDigits = "1234", totalLimit = 500_000L, closingDay = 10, dueDay = 17, defaultHolderId = holderId))
+
+        // Parcela apenas em Nov/2026
+        dao.installments += InstallmentEntity(
+            id = 1L,
+            transactionId = 1L,
+            holderId = holderId,
+            cardId = cardId,
+            merchantSnapshot = "Notebook",
+            installmentNumber = 1,
+            totalInstallments = 1,
+            amount = 30_000L,
+            refMonth = 11,
+            refYear = 2026,
+            purchaseTimestamp = 1000L
+        )
+
+        val repo = CardRepository(dao)
+
+        val manualPeriodFlow = MutableStateFlow<LocalDate?>(null)
+        val flow = com.cardcontrol.app.ui.MainViewModel.buildDashboardUiStateFlow(
+            referenceDate = refDate,
+            manualPeriodFlow = manualPeriodFlow,
+            repository = repo
+        )
+
+        // Primeira emissão sem delay
+        val firstState = flow.first()
+        assertFalse("Primeira emissão não deve estar em inicialização", firstState.isInitializing)
+        assertEquals("Primeira emissão deve alinhar para Nov/2026 de imediato", 11, firstState.selectedMonth)
+        assertEquals(2026, firstState.selectedYear)
+        assertEquals(30_000L, firstState.totalMonthInvoice)
+
+        // Seleção manual prevalece
+        manualPeriodFlow.value = LocalDate.of(2026, 12, 1)
+        val manualState = flow.first { it.selectedMonth == 12 }
+        assertEquals(12, manualState.selectedMonth)
+        assertEquals(2026, manualState.selectedYear)
+        assertEquals(0L, manualState.totalMonthInvoice)
     }
 }

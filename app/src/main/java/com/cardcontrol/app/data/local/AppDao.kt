@@ -19,6 +19,53 @@ interface AppDao {
     @Query("SELECT * FROM holders WHERE id = :id LIMIT 1")
     suspend fun getHolderById(id: Long): HolderEntity?
 
+    @Query("SELECT * FROM holders ORDER BY id ASC")
+    suspend fun getAllHoldersSnapshot(): List<HolderEntity>
+
+    @Update
+    suspend fun updateHolder(holder: HolderEntity): Int
+
+    @Query("UPDATE credit_cards SET defaultHolderId = :newHolderId WHERE defaultHolderId = :oldHolderId")
+    suspend fun reassignCardsDefaultHolder(oldHolderId: Long, newHolderId: Long?)
+
+    @Query("UPDATE transactions SET holderId = :newHolderId WHERE holderId = :oldHolderId")
+    suspend fun reassignTransactionsHolder(oldHolderId: Long, newHolderId: Long)
+
+    @Query("UPDATE installments SET holderId = :newHolderId WHERE holderId = :oldHolderId")
+    suspend fun reassignInstallmentsHolder(oldHolderId: Long, newHolderId: Long)
+
+    @Query("UPDATE payments SET holderId = :newHolderId WHERE holderId = :oldHolderId")
+    suspend fun reassignPaymentsHolder(oldHolderId: Long, newHolderId: Long)
+
+    @Query("UPDATE recurring_charges SET holderId = :newHolderId WHERE holderId = :oldHolderId")
+    suspend fun reassignRecurringChargesHolder(oldHolderId: Long, newHolderId: Long)
+
+    @Query("DELETE FROM holders WHERE id = :id AND NOT EXISTS (SELECT 1 FROM transactions WHERE holderId = :id) AND NOT EXISTS (SELECT 1 FROM installments WHERE holderId = :id) AND NOT EXISTS (SELECT 1 FROM payments WHERE holderId = :id) AND NOT EXISTS (SELECT 1 FROM recurring_charges WHERE holderId = :id)")
+    suspend fun deleteHolderIfUnused(id: Long): Int
+
+    @Deprecated("Inseguro contra CASCADE; use safeDeleteHolderIfUnused(id).", ReplaceWith("safeDeleteHolderIfUnused(id)"))
+    suspend fun deleteHolderById(id: Long): Int = 0
+
+    @Transaction
+    suspend fun safeDeleteHolderIfUnused(id: Long): Int {
+        val deleted = deleteHolderIfUnused(id)
+        if (deleted > 0) {
+            reassignCardsDefaultHolder(id, null)
+        }
+        return deleted
+    }
+
+    @Transaction
+    suspend fun mergeDuplicateHolder(oldHolderId: Long, newHolderId: Long): Int {
+        if (oldHolderId == newHolderId) return 0
+        reassignCardsDefaultHolder(oldHolderId, newHolderId)
+        reassignTransactionsHolder(oldHolderId, newHolderId)
+        reassignInstallmentsHolder(oldHolderId, newHolderId)
+        reassignPaymentsHolder(oldHolderId, newHolderId)
+        reassignRecurringChargesHolder(oldHolderId, newHolderId)
+        return deleteHolderIfUnused(oldHolderId)
+    }
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertCard(card: CreditCardEntity): Long
 
@@ -34,7 +81,7 @@ interface AppDao {
     @Update
     suspend fun updateCard(card: CreditCardEntity): Int
 
-    @Query("DELETE FROM credit_cards WHERE id = :id AND NOT EXISTS (SELECT 1 FROM transactions WHERE cardId = :id) AND NOT EXISTS (SELECT 1 FROM installments WHERE cardId = :id) AND NOT EXISTS (SELECT 1 FROM payments WHERE cardId = :id)")
+    @Query("DELETE FROM credit_cards WHERE id = :id AND NOT EXISTS (SELECT 1 FROM transactions WHERE cardId = :id) AND NOT EXISTS (SELECT 1 FROM installments WHERE cardId = :id) AND NOT EXISTS (SELECT 1 FROM payments WHERE cardId = :id) AND NOT EXISTS (SELECT 1 FROM recurring_charges WHERE cardId = :id)")
     suspend fun deleteCardIfUnused(id: Long): Int
 
     @Insert
@@ -42,6 +89,18 @@ interface AppDao {
 
     @Insert
     suspend fun insertInstallments(installments: List<InstallmentEntity>)
+
+    @Query("DELETE FROM installments WHERE transactionId = :transactionId")
+    suspend fun deleteInstallmentsByTransaction(transactionId: Long)
+
+    @Query("DELETE FROM transactions WHERE id = :transactionId")
+    suspend fun deleteTransactionById(transactionId: Long): Int
+
+    @Transaction
+    suspend fun deleteTransactionWithInstallments(transactionId: Long): Int {
+        deleteInstallmentsByTransaction(transactionId)
+        return deleteTransactionById(transactionId)
+    }
 
     @Transaction
     suspend fun insertTransactionWithInstallments(
@@ -108,6 +167,9 @@ interface AppDao {
 
     @Query("SELECT * FROM transactions ORDER BY purchaseTimestamp ASC")
     suspend fun getAllTransactionsSnapshot(): List<TransactionEntity>
+
+    @Query("SELECT * FROM transactions ORDER BY purchaseTimestamp ASC")
+    fun observeAllTransactions(): Flow<List<TransactionEntity>>
 
     @Query("SELECT COALESCE(SUM(expectedAmount), 0) FROM recurring_charges WHERE isActive = 1")
     suspend fun getTotalActiveRecurringAmount(): Long

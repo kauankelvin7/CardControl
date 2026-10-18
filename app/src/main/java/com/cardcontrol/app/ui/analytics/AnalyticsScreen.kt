@@ -4,10 +4,12 @@ import java.util.Locale
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -17,6 +19,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -52,6 +55,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -64,6 +68,7 @@ import com.cardcontrol.app.data.local.HolderEntity
 import com.cardcontrol.app.data.local.InstallmentEntity
 import com.cardcontrol.app.data.local.PaymentEntity
 import com.cardcontrol.app.data.local.RecurringChargeEntity
+import com.cardcontrol.app.data.local.TransactionEntity
 import com.cardcontrol.app.domain.analytics.AnalyticsDashboardState
 import com.cardcontrol.app.domain.analytics.AnalyticsPeriod
 import com.cardcontrol.app.domain.analytics.FinancialAnalyticsEngine
@@ -73,6 +78,26 @@ import com.cardcontrol.app.ui.designsystem.CcType
 import com.cardcontrol.app.ui.theme.LiquidPillSelector
 import com.cardcontrol.app.util.MoneyUtils
 import java.time.LocalDate
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+
+internal fun cardCountLabel(count: Int): String =
+    "$count ${if (count == 1) "cartão" else "cartões"}"
+
+internal fun holderCountLabel(count: Int): String =
+    "$count ${if (count == 1) "pessoa" else "pessoas"}"
+
+internal fun walletCapacityUsagePercent(committedCents: Long, totalLimitCents: Long): Long =
+    if (totalLimitCents > 0L) {
+        java.math.BigDecimal(committedCents)
+            .multiply(java.math.BigDecimal(100))
+            .divide(java.math.BigDecimal(totalLimitCents), 0, java.math.RoundingMode.HALF_UP)
+            .toLong()
+    } else 0L
+
+internal fun purchaseCountLabel(count: Int): String =
+    if (count == 1) "1 compra" else "$count compras"
 
 /**
  * Tela de Análises Financeiras Offline (TASK-019).
@@ -82,6 +107,7 @@ import java.time.LocalDate
 fun AnalyticsScreen(
     installments: List<InstallmentEntity>,
     payments: List<PaymentEntity>,
+    transactions: List<TransactionEntity>,
     cards: List<CreditCardEntity>,
     holders: List<HolderEntity>,
     recurringCharges: List<RecurringChargeEntity>,
@@ -100,6 +126,7 @@ fun AnalyticsScreen(
     val dashboardState = remember(
         installments,
         payments,
+        transactions,
         cards,
         holders,
         recurringCharges,
@@ -110,6 +137,7 @@ fun AnalyticsScreen(
         FinancialAnalyticsEngine.computeDashboard(
             installments = installments,
             payments = payments,
+            transactions = transactions,
             cards = cards,
             holders = holders,
             recurringCharges = recurringCharges,
@@ -145,8 +173,18 @@ fun AnalyticsScreen(
             onHolderSelect = { selectedFilterHolderId = it }
         )
 
-        // 2. Se não houver despesas no período: Estado vazio limpo e informativo
-        if (dashboardState.kpis.grossSpendingCents == 0L && dashboardState.filteredInstallments.isEmpty()) {
+        // 2. Painel de Capacidade da Carteira sempre visível quando há cartões cadastrados
+        if (cards.isNotEmpty()) {
+            WalletCapacityOverviewSection(
+                cards = cards,
+                holders = holders,
+                allInstallments = installments,
+                allPayments = payments
+            )
+        }
+
+        // 3. Se não houver despesas no período: Estado vazio limpo e informativo
+        if (dashboardState.kpis.grossSpendingCents == 0L && dashboardState.filteredTransactions.isEmpty()) {
             EmptyAnalyticsView(selectedPeriod = selectedPeriod)
         } else {
             // 3. Grade de KPIs Principais
@@ -188,11 +226,12 @@ fun AnalyticsScreen(
                 dashboardState = dashboardState,
                 isExpanded = isDrilldownExpanded,
                 onToggleExpand = { isDrilldownExpanded = !isDrilldownExpanded },
-                selectedCategory = selectedCategoryFilter
+                selectedCategory = selectedCategoryFilter,
+                recurringCharges = recurringCharges
             )
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
+        Spacer(modifier = Modifier.height(148.dp))
     }
 }
 
@@ -209,12 +248,49 @@ private fun PeriodAndFilterSection(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         // Seletor de Períodos
-        Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
-            LiquidPillSelector(
-                options = AnalyticsPeriod.entries.map { it to it.displayName },
-                selectedId = selectedPeriod,
-                onSelect = onPeriodSelect
-            )
+        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            AnalyticsPeriod.entries.chunked(2).forEach { rowPeriods ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    rowPeriods.forEach { period ->
+                        val selected = period == selectedPeriod
+                        val shape = RoundedCornerShape(10.dp)
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .heightIn(min = 44.dp)
+                                .clip(shape)
+                                .background(
+                                    if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.surfaceContainerLow
+                                )
+                                .border(
+                                    width = 1.dp,
+                                    color = if (selected) MaterialTheme.colorScheme.primary
+                                    else MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
+                                    shape = shape
+                                )
+                                .selectable(
+                                    selected = selected,
+                                    role = Role.RadioButton,
+                                    onClick = { onPeriodSelect(period) }
+                                )
+                                .padding(horizontal = 10.dp, vertical = 9.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = period.displayName,
+                                color = if (selected) MaterialTheme.colorScheme.onPrimary
+                                else MaterialTheme.colorScheme.onSurfaceVariant,
+                                style = MaterialTheme.typography.labelMedium,
+                                fontWeight = if (selected) FontWeight.Bold else FontWeight.Medium
+                            )
+                        }
+                    }
+                }
+            }
         }
 
         // Filtro por Cartão ou Titular (se houver dados)
@@ -260,7 +336,8 @@ private fun KpiCardsSection(dashboardState: AnalyticsDashboardState) {
         // Card Principal: Total Gasto Bruto e Variação PoP
         Surface(
             shape = RoundedCornerShape(16.dp),
-            color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.6f),
+            color = MaterialTheme.colorScheme.surfaceContainer,
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
             modifier = Modifier.fillMaxWidth()
         ) {
             Column(modifier = Modifier.padding(16.dp)) {
@@ -320,10 +397,11 @@ private fun KpiCardsSection(dashboardState: AnalyticsDashboardState) {
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(10.dp)
         ) {
-            // Card 2: Abatimentos / Pagamentos
+            // Card 2: Pagamentos
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                 modifier = Modifier.weight(1f)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
@@ -344,7 +422,8 @@ private fun KpiCardsSection(dashboardState: AnalyticsDashboardState) {
             // Card 3: Ticket Médio
             Surface(
                 shape = RoundedCornerShape(14.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.45f),
+                color = MaterialTheme.colorScheme.surfaceContainer,
+                border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
                 modifier = Modifier.weight(1f)
             ) {
                 Column(modifier = Modifier.padding(14.dp)) {
@@ -360,7 +439,7 @@ private fun KpiCardsSection(dashboardState: AnalyticsDashboardState) {
                         color = MaterialTheme.colorScheme.onSurface
                     )
                     Text(
-                        text = "${kpis.transactionCount} compras",
+                        text = purchaseCountLabel(kpis.transactionCount),
                         style = CcType.cardMeta.copy(fontSize = 10.sp),
                         color = MaterialTheme.colorScheme.onSurfaceVariant
                     )
@@ -452,7 +531,7 @@ private fun CategoryDistributionSection(
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
-                            modifier = Modifier.weight(1f, fill = false)
+                            modifier = Modifier.weight(1f)
                         ) {
                             Box(
                                 modifier = Modifier
@@ -463,7 +542,7 @@ private fun CategoryDistributionSection(
                             Text(
                                 text = item.category.displayName,
                                 style = CcType.cardMeta.copy(
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal
                                 ),
                                 color = MaterialTheme.colorScheme.onSurface,
@@ -471,8 +550,9 @@ private fun CategoryDistributionSection(
                                 overflow = TextOverflow.Ellipsis
                             )
                         }
+                        Spacer(Modifier.width(6.dp))
                         Text(
-                            text = "${(item.percentage * 100).toInt()}%",
+                            text = "${item.percentageBps / 100}%",
                             style = CcType.cardMeta.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
                             color = item.category.color
                         )
@@ -519,7 +599,7 @@ private fun CardShareSection(cardShares: List<com.cardcontrol.app.domain.analyti
                             color = MaterialTheme.colorScheme.onSurface
                         )
                         Text(
-                            text = "${(share.percentage * 100).toInt()}% do total",
+                        text = "${share.percentageBps / 100}% do total",
                             style = CcType.cardMeta.copy(fontSize = 10.sp),
                             color = MaterialTheme.colorScheme.primary
                         )
@@ -542,15 +622,16 @@ private fun DrilldownSection(
     dashboardState: AnalyticsDashboardState,
     isExpanded: Boolean,
     onToggleExpand: () -> Unit,
-    selectedCategory: SpendingCategory?
+    selectedCategory: SpendingCategory?,
+    recurringCharges: List<RecurringChargeEntity>
 ) {
-    val itemsToShow = remember(dashboardState.filteredInstallments, selectedCategory) {
+    val itemsToShow = remember(dashboardState.filteredTransactions, selectedCategory, recurringCharges) {
         if (selectedCategory != null) {
-            dashboardState.filteredInstallments.filter {
-                FinancialAnalyticsEngine.inferCategory(it.merchantSnapshot) == selectedCategory
+            dashboardState.filteredTransactions.filter {
+                FinancialAnalyticsEngine.categoryForTransaction(it, recurringCharges) == selectedCategory
             }
         } else {
-            dashboardState.filteredInstallments
+            dashboardState.filteredTransactions
         }
     }
 
@@ -581,7 +662,7 @@ private fun DrilldownSection(
         val displayItems = if (isExpanded) itemsToShow else itemsToShow.take(4)
 
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            displayItems.forEach { inst ->
+            displayItems.forEach { transaction ->
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -591,26 +672,28 @@ private fun DrilldownSection(
                 ) {
                     Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = inst.merchantSnapshot,
+                            text = transaction.merchant,
                             style = CcType.buttonLabel.copy(fontSize = 13.sp),
                             color = MaterialTheme.colorScheme.onSurface,
                             maxLines = 1,
                             overflow = TextOverflow.Ellipsis
                         )
-                        val subText = if (inst.totalInstallments > 1) {
-                            "Parcela ${inst.installmentNumber}/${inst.totalInstallments}"
-                        } else {
-                            "À vista"
+                        val purchaseDate = Instant.ofEpochMilli(transaction.purchaseTimestamp)
+                            .atZone(ZoneId.systemDefault()).toLocalDate()
+                        val purchaseMode = when {
+                            transaction.isRecurring -> "Recorrente"
+                            transaction.installmentsCount > 1 -> "Parcelada em ${transaction.installmentsCount}x"
+                            else -> "À vista"
                         }
                         Text(
-                            text = "$subText · ${FinancialAnalyticsEngine.formatMonthLabel(inst.refYear, inst.refMonth)}",
+                            text = "$purchaseMode · ${purchaseDate.format(DateTimeFormatter.ofPattern("dd/MM/yy"))}",
                             style = CcType.cardMeta.copy(fontSize = 11.sp),
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
 
                     Text(
-                        text = MoneyUtils.formatCents(inst.amount),
+                        text = MoneyUtils.formatCents(transaction.totalAmount),
                         style = CcType.cardMeta.copy(fontSize = 13.sp, fontWeight = FontWeight.SemiBold),
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -623,11 +706,12 @@ private fun DrilldownSection(
 @Composable
 private fun EmptyAnalyticsView(selectedPeriod: AnalyticsPeriod) {
     Surface(
-        shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f),
+        shape = RoundedCornerShape(14.dp),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f)),
         modifier = Modifier
             .fillMaxWidth()
-            .padding(vertical = 32.dp)
+            .padding(vertical = 8.dp)
     ) {
         Column(
             modifier = Modifier.padding(24.dp),
@@ -666,7 +750,8 @@ private fun SectionContainer(
 ) {
     Surface(
         shape = RoundedCornerShape(16.dp),
-        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        border = BorderStroke(1.dp, MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.35f)),
         modifier = Modifier.fillMaxWidth()
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -684,6 +769,173 @@ private fun SectionContainer(
             }
             Spacer(modifier = Modifier.height(12.dp))
             content()
+        }
+    }
+}
+
+
+@Composable
+private fun WalletCapacityOverviewSection(
+    cards: List<CreditCardEntity>,
+    holders: List<HolderEntity>,
+    allInstallments: List<InstallmentEntity>,
+    allPayments: List<PaymentEntity>
+) {
+    val totalLimitCents = cards.sumOf { it.totalLimit }
+    val totalCommittedCents = (allInstallments.sumOf { it.amount } - allPayments.sumOf { it.amountPaid }).coerceAtLeast(0L)
+    val availableCents = (totalLimitCents - totalCommittedCents).coerceAtLeast(0L)
+    val usedPct = walletCapacityUsagePercent(totalCommittedCents, totalLimitCents)
+    val visualUsedRatio = if (totalLimitCents > 0L) {
+        java.math.BigDecimal(totalCommittedCents)
+            .divide(java.math.BigDecimal(totalLimitCents), 4, java.math.RoundingMode.HALF_UP)
+            .toFloat()
+            .coerceIn(0f, 1f)
+    } else 0f
+
+    Surface(
+        shape = CcShapes.panel,
+        color = MaterialTheme.colorScheme.surfaceContainer,
+        modifier = Modifier
+            .fillMaxWidth()
+            .border(1.dp, MaterialTheme.colorScheme.outlineVariant, CcShapes.panel)
+    ) {
+        Column(
+            modifier = Modifier.padding(18.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "CAPACIDADE DA CARTEIRA",
+                    style = CcType.cardMeta.copy(
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 0.8.sp
+                    ),
+                    color = MaterialTheme.colorScheme.primary
+                )
+                Box(
+                    modifier = Modifier
+                        .align(Alignment.End)
+                        .clip(CircleShape)
+                        .background(MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.7f))
+                        .padding(horizontal = 10.dp, vertical = 3.dp)
+                ) {
+                    Text(
+                        text = "$usedPct% em uso",
+                        style = CcType.cardMeta.copy(fontSize = 11.sp, fontWeight = FontWeight.Bold),
+                        color = MaterialTheme.colorScheme.onPrimaryContainer,
+                        maxLines = 1,
+                        softWrap = false
+                    )
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = MoneyUtils.formatCents(availableCents),
+                    style = CcType.screenHeader.copy(fontSize = 26.sp, fontWeight = FontWeight.ExtraBold),
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                Text(
+                    text = "Limite livre somado em ${cardCountLabel(cards.size)} · Total ${MoneyUtils.formatCents(totalLimitCents)}",
+                    style = CcType.cardMeta.copy(fontSize = 12.sp),
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(6.dp)
+                    .clip(CircleShape)
+                    .background(MaterialTheme.colorScheme.surfaceContainerHighest)
+            ) {
+                if (visualUsedRatio > 0f) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(visualUsedRatio)
+                            .height(6.dp)
+                            .clip(CircleShape)
+                            .background(MaterialTheme.colorScheme.primary)
+                    )
+                }
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.CreditCard,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Column {
+                            Text(
+                                text = cardCountLabel(cards.size),
+                                style = CcType.buttonLabel.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = cards.firstOrNull()?.name ?: "Ativo",
+                                style = CcType.cardMeta.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceContainerHigh,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.primary,
+                            modifier = Modifier.size(18.dp)
+                        )
+                        Column {
+                            Text(
+                                text = holderCountLabel(holders.size),
+                                style = CcType.buttonLabel.copy(fontSize = 12.sp, fontWeight = FontWeight.Bold),
+                                color = MaterialTheme.colorScheme.onSurface,
+                                maxLines = 1
+                            )
+                            Text(
+                                text = holders.firstOrNull()?.name ?: "Sem titular",
+                                style = CcType.cardMeta.copy(fontSize = 11.sp),
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }

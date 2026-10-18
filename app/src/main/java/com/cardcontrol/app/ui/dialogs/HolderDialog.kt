@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.AccountBalanceWallet
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.PersonAdd
@@ -32,26 +33,36 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.cardcontrol.app.data.local.HolderEntity
 import com.cardcontrol.app.util.MoneyUtils
 import com.cardcontrol.app.ui.components.GlassTextField
 import com.cardcontrol.app.ui.designsystem.CCTheme
 import com.cardcontrol.app.ui.designsystem.CcShapes
 
 /**
- * Diálogo modal para cadastro de novo titular ou dependente.
- *
- * Coleta dados de contato para envio opcional de relatórios e define
- * um sublimite mensal (em centavos), onde 0 indica ausência de teto.
+ * Diálogo modal para cadastro ou edição de titular / pessoa.
  */
 @Composable
 fun HolderDialog(
+    holderToEdit: HolderEntity? = null,
     onDismissRequest: () -> Unit,
-    onConfirm: (name: String, whats: String, email: String, subLimitCents: Long) -> Unit
+    onConfirm: (name: String, whats: String, email: String, subLimitCents: Long) -> Unit,
+    onUpdateHolder: ((id: Long, name: String, whats: String, email: String, subLimitCents: Long) -> Unit)? = null
 ) {
-    var name by remember { mutableStateOf("") }
-    var whats by remember { mutableStateOf("") }
-    var email by remember { mutableStateOf("") }
-    var subLimit by remember { mutableStateOf("") }
+    val isEdit = holderToEdit != null
+    var name by remember(holderToEdit) { mutableStateOf(holderToEdit?.name ?: "") }
+    var whats by remember(holderToEdit) { mutableStateOf(holderToEdit?.whatsapp ?: "") }
+    var email by remember(holderToEdit) { mutableStateOf(holderToEdit?.email ?: "") }
+    var subLimit by remember(holderToEdit) {
+        mutableStateOf(
+            if (holderToEdit != null && holderToEdit.subLimit > 0L) {
+                String.format(java.util.Locale("pt", "BR"), "%.2f", holderToEdit.subLimit / 100.0)
+            } else {
+                ""
+            }
+        )
+    }
+    var formError by remember { mutableStateOf<String?>(null) }
 
     AlertDialog(
         onDismissRequest = onDismissRequest,
@@ -61,17 +72,27 @@ fun HolderDialog(
         modifier = Modifier.border(1.dp, MaterialTheme.colorScheme.outlineVariant, CcShapes.dialog),
         title = {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Default.PersonAdd, null, tint = MaterialTheme.colorScheme.primary)
+                Icon(
+                    imageVector = if (isEdit) Icons.Default.Edit else Icons.Default.PersonAdd,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
                 Spacer(Modifier.width(8.dp))
-                Text("Novo Titular / Dependente", fontWeight = FontWeight.Bold)
+                Text(
+                    text = if (isEdit) "Editar Pessoa" else "Nova Pessoa",
+                    fontWeight = FontWeight.Bold
+                )
             }
         },
         text = {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 GlassTextField(
                     value = name,
-                    onValueChange = { name = it },
-                    label = "Nome Completo",
+                    onValueChange = {
+                        name = it
+                        formError = null
+                    },
+                    label = "Nome",
                     placeholder = "Ex: Carlos Silva",
                     leadingIcon = { Icon(Icons.Default.Person, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next)
@@ -79,7 +100,7 @@ fun HolderDialog(
                 GlassTextField(
                     value = whats,
                     onValueChange = { whats = it },
-                    label = "WhatsApp com DDD",
+                    label = "WhatsApp com DDD (opcional)",
                     placeholder = "Ex: 5511999998888",
                     leadingIcon = { Icon(Icons.Default.Phone, null, tint = CCTheme.extras.semantics.success) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Phone, imeAction = ImeAction.Next)
@@ -87,7 +108,7 @@ fun HolderDialog(
                 GlassTextField(
                     value = email,
                     onValueChange = { email = it },
-                    label = "E-mail para Alertas Instantâneos",
+                    label = "E-mail para Alertas (opcional)",
                     placeholder = "carlos@gmail.com",
                     leadingIcon = { Icon(Icons.Default.Email, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email, imeAction = ImeAction.Next)
@@ -96,10 +117,13 @@ fun HolderDialog(
                     value = subLimit,
                     onValueChange = { subLimit = it },
                     label = "Sublimite Mensal (R$)",
-                    placeholder = "0,00 (0 para sem teto)",
+                    placeholder = "0,00 (vazio ou 0 para sem teto)",
                     leadingIcon = { Icon(Icons.Default.AccountBalanceWallet, null, tint = CCTheme.extras.semantics.warning) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal, imeAction = ImeAction.Done)
                 )
+                formError?.let { message ->
+                    Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         dismissButton = {
@@ -111,8 +135,15 @@ fun HolderDialog(
             Button(
                 onClick = {
                     if (name.isNotBlank()) {
+                        formError = null
                         val subLimitCents = MoneyUtils.parseToCents(subLimit) ?: 0L
-                        onConfirm(name.trim(), whats.trim(), email.trim(), subLimitCents)
+                        if (isEdit && holderToEdit != null && onUpdateHolder != null) {
+                            onUpdateHolder(holderToEdit.id, name.trim(), whats.trim(), email.trim(), subLimitCents)
+                        } else {
+                            onConfirm(name.trim(), whats.trim(), email.trim(), subLimitCents)
+                        }
+                    } else {
+                        formError = "Informe o nome da pessoa."
                     }
                 },
                 colors = ButtonDefaults.buttonColors(
@@ -121,7 +152,7 @@ fun HolderDialog(
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
-                Text("Salvar", fontWeight = FontWeight.Bold)
+                Text(if (isEdit) "Salvar alterações" else "Salvar", fontWeight = FontWeight.Bold)
             }
         }
     )

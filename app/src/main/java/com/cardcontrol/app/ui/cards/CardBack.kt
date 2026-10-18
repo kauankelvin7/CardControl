@@ -118,7 +118,8 @@ fun CardBack(
                         modifier = Modifier
                             .size(36.dp)
                             .clip(CircleShape)
-                            .background(Color.White.copy(alpha = 0.14f))
+                            .background(Color.White.copy(alpha = 0.16f))
+                            .border(1.dp, Color.White.copy(alpha = 0.32f), CircleShape)
                     ) {
                         Icon(
                             imageVector = Icons.Default.Sync,

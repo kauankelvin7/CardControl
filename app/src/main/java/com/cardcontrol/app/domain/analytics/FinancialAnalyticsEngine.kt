@@ -7,10 +7,13 @@ import com.cardcontrol.app.data.local.InstallmentEntity
 import com.cardcontrol.app.data.local.PaymentEntity
 import com.cardcontrol.app.data.local.RecurringChargeEntity
 import com.cardcontrol.app.data.local.SupportedBank
+import com.cardcontrol.app.data.local.TransactionEntity
 import java.math.BigDecimal
 import java.math.RoundingMode
 import java.text.Normalizer
 import java.time.LocalDate
+import java.time.YearMonth
+import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
@@ -37,7 +40,7 @@ enum class SpendingCategory(
     LAZER("Lazer & Viagem", Color(0xFF6A1B9A)),
     ASSINATURAS("Assinaturas", Color(0xFF1565C0)),
     SERVICOS("Serviços & Compras", Color(0xFFB78103)),
-    OUTROS("Não categorizado", Color(0xFF546E7A))
+    OUTROS("Outros", Color(0xFF546E7A))
 }
 
 /**
@@ -70,7 +73,7 @@ data class MonthlySpendingBar(
 data class CategorySpendingDonut(
     val category: SpendingCategory,
     val amountCents: Long,
-    val percentage: Float
+    val percentageBps: Long
 )
 
 /**
@@ -90,7 +93,7 @@ data class CardShare(
     val cardName: String,
     val bankName: String,
     val amountCents: Long,
-    val percentage: Float
+    val percentageBps: Long
 )
 
 /**
@@ -118,7 +121,8 @@ data class AnalyticsDashboardState(
     val modality: ModalitySpending,
     val cardShares: List<CardShare>,
     val topMerchants: List<MerchantRank>,
-    val filteredInstallments: List<InstallmentEntity>
+    val filteredInstallments: List<InstallmentEntity>,
+    val filteredTransactions: List<TransactionEntity>
 )
 
 /**
@@ -129,12 +133,29 @@ object FinancialAnalyticsEngine {
 
     private val PT_BR = Locale("pt", "BR")
 
+    private fun percentageBps(amountCents: Long, totalCents: Long): Long =
+        if (totalCents > 0L) {
+            BigDecimal(amountCents)
+                .multiply(BigDecimal(10_000))
+                .divide(BigDecimal(totalCents), 0, RoundingMode.HALF_UP)
+                .toLong()
+        } else 0L
+
+    fun categoryForTransaction(
+        transaction: TransactionEntity,
+        recurringCharges: List<RecurringChargeEntity>
+    ): SpendingCategory {
+        val recurringMerchants = recurringCharges.filter { it.isActive }.map { normalizeString(it.merchant) }.toSet()
+        return inferCategory(transaction.merchant, transaction.installmentsCount, recurringMerchants)
+    }
+
     /**
      * Calcula o estado completo de análise para os filtros selecionados.
      */
     fun computeDashboard(
         installments: List<InstallmentEntity>,
         payments: List<PaymentEntity>,
+        transactions: List<TransactionEntity>,
         cards: List<CreditCardEntity>,
         @Suppress("UNUSED_PARAMETER") holders: List<HolderEntity>,
         recurringCharges: List<RecurringChargeEntity>,
@@ -143,11 +164,17 @@ object FinancialAnalyticsEngine {
         filterHolderId: Long? = null,
         referenceDate: LocalDate = LocalDate.now()
     ): AnalyticsDashboardState {
-        // 1. Determina a lista de meses cobertos pelo período
+        // Compra pertence ao mês local em que ocorreu; parcelas pertencem à fatura.
+        val referenceMonth = YearMonth.from(referenceDate)
         val targetMonths = getTargetMonths(referenceDate, period.monthsCount)
         val targetMonthSet = targetMonths.map { it.first to it.second }.toSet()
+        val zone = ZoneId.systemDefault()
+        val periodStart = referenceMonth.minusMonths((period.monthsCount - 1).toLong())
+            .atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val periodEndExclusive = referenceMonth.plusMonths(1)
+            .atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
 
-        // 2. Filtra os lançamentos do período atual e aplica filtros de cartão/titular
+        // Parcelas continuam disponíveis para consulta de fatura, sem definir os gastos da análise.
         val currentInstallments = installments.filter { inst ->
             (inst.refYear to inst.refMonth) in targetMonthSet &&
                 (filterCardId == null || inst.cardId == filterCardId) &&
@@ -160,11 +187,17 @@ object FinancialAnalyticsEngine {
                 (filterHolderId == null || pay.holderId == filterHolderId)
         }
 
+        val currentTransactions = transactions.filter { tx ->
+            tx.purchaseTimestamp >= periodStart && tx.purchaseTimestamp < periodEndExclusive &&
+                (filterCardId == null || tx.cardId == filterCardId) &&
+                (filterHolderId == null || tx.holderId == filterHolderId)
+        }
+
         // 3. Cálculos de KPIs do período atual
-        val grossSpendingCents = currentInstallments.sumOf { it.amount }
+        val grossSpendingCents = currentTransactions.sumOf { it.totalAmount }
         val paymentsCents = currentPayments.sumOf { it.amountPaid }
         val netSpendingCents = grossSpendingCents - paymentsCents
-        val txCount = currentInstallments.size
+        val txCount = currentTransactions.size
         val averageTicketCents = if (txCount > 0) {
             BigDecimal(grossSpendingCents)
                 .divide(BigDecimal(txCount), 0, RoundingMode.HALF_UP)
@@ -174,16 +207,13 @@ object FinancialAnalyticsEngine {
         }
 
         // 4. Período anterior para cálculo de variação (PoP - Period over Period)
-        val previousTargetMonths = getTargetMonths(
-            referenceDate.minusMonths(period.monthsCount.toLong()),
-            period.monthsCount
-        ).map { it.first to it.second }.toSet()
-
-        val previousGrossCents = installments.filter { inst ->
-            (inst.refYear to inst.refMonth) in previousTargetMonths &&
-                (filterCardId == null || inst.cardId == filterCardId) &&
-                (filterHolderId == null || inst.holderId == filterHolderId)
-        }.sumOf { it.amount }
+        val previousStart = referenceMonth.minusMonths(period.monthsCount.toLong())
+            .atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+        val previousGrossCents = transactions.asSequence().filter { tx ->
+            tx.purchaseTimestamp >= previousStart && tx.purchaseTimestamp < periodStart &&
+                (filterCardId == null || tx.cardId == filterCardId) &&
+                (filterHolderId == null || tx.holderId == filterHolderId)
+        }.sumOf { it.totalAmount }
 
         val periodOverPeriodBps: Long? = if (previousGrossCents > 0L) {
             val delta = BigDecimal(grossSpendingCents - previousGrossCents)
@@ -209,11 +239,14 @@ object FinancialAnalyticsEngine {
         val trendMonths = getTargetMonths(referenceDate, trendMonthsCount).reversed()
 
         val monthlyTrend = trendMonths.map { (year, month) ->
-            val monthGross = installments.filter { inst ->
-                inst.refYear == year && inst.refMonth == month &&
-                    (filterCardId == null || inst.cardId == filterCardId) &&
-                    (filterHolderId == null || inst.holderId == filterHolderId)
-            }.sumOf { it.amount }
+            val trendMonth = YearMonth.of(year, month)
+            val monthStart = trendMonth.atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val monthEnd = trendMonth.plusMonths(1).atDay(1).atStartOfDay(zone).toInstant().toEpochMilli()
+            val monthGross = transactions.asSequence().filter { tx ->
+                tx.purchaseTimestamp >= monthStart && tx.purchaseTimestamp < monthEnd &&
+                    (filterCardId == null || tx.cardId == filterCardId) &&
+                    (filterHolderId == null || tx.holderId == filterHolderId)
+            }.sumOf { it.totalAmount }
 
             val monthPaid = payments.filter { pay ->
                 pay.refYear == year && pay.refMonth == month &&
@@ -235,18 +268,15 @@ object FinancialAnalyticsEngine {
         val recurringMerchants = recurringCharges.filter { it.isActive }.map { normalizeString(it.merchant) }.toSet()
         val categoryMap = mutableMapOf<SpendingCategory, Long>()
 
-        for (inst in currentInstallments) {
-            val cat = inferCategory(inst.merchantSnapshot, inst.totalInstallments, recurringMerchants)
-            categoryMap[cat] = (categoryMap[cat] ?: 0L) + inst.amount
+        for (tx in currentTransactions) {
+            val cat = inferCategory(tx.merchant, tx.installmentsCount, recurringMerchants)
+            categoryMap[cat] = (categoryMap[cat] ?: 0L) + tx.totalAmount
         }
 
         val categories = SpendingCategory.entries.mapNotNull { cat ->
             val amount = categoryMap[cat] ?: 0L
             if (amount > 0L && grossSpendingCents > 0L) {
-                val pct = BigDecimal(amount)
-                    .divide(BigDecimal(grossSpendingCents), 4, RoundingMode.HALF_UP)
-                    .toFloat()
-                CategorySpendingDonut(cat, amount, pct)
+                CategorySpendingDonut(cat, amount, percentageBps(amount, grossSpendingCents))
             } else {
                 null
             }
@@ -257,12 +287,12 @@ object FinancialAnalyticsEngine {
         var parceladoCents = 0L
         var aVistaCents = 0L
 
-        for (inst in currentInstallments) {
-            val isRec = normalizeString(inst.merchantSnapshot) in recurringMerchants
+        for (tx in currentTransactions) {
+            val isRec = tx.isRecurring || normalizeString(tx.merchant) in recurringMerchants
             when {
-                isRec -> recorrenteCents += inst.amount
-                inst.totalInstallments > 1 -> parceladoCents += inst.amount
-                else -> aVistaCents += inst.amount
+                isRec -> recorrenteCents += tx.totalAmount
+                tx.installmentsCount > 1 -> parceladoCents += tx.totalAmount
+                else -> aVistaCents += tx.totalAmount
             }
         }
 
@@ -274,13 +304,10 @@ object FinancialAnalyticsEngine {
 
         // 8. Participação por Cartão
         val cardMap = cards.associateBy { it.id }
-        val cardGrouped = currentInstallments.groupBy { it.cardId }
-        val cardShares = cardGrouped.mapNotNull { (cardId, insts) ->
+        val cardGrouped = currentTransactions.groupBy { it.cardId }
+        val cardShares = cardGrouped.mapNotNull { (cardId, txs) ->
             val card = cardMap[cardId] ?: return@mapNotNull null
-            val cardTotal = insts.sumOf { it.amount }
-            val pct = if (grossSpendingCents > 0L) {
-                BigDecimal(cardTotal).divide(BigDecimal(grossSpendingCents), 4, RoundingMode.HALF_UP).toFloat()
-            } else 0f
+            val cardTotal = txs.sumOf { it.totalAmount }
             val bank = SupportedBank.fromId(card.bank)
             val displayName = if (bank != SupportedBank.OTHER) bank.displayName else card.name
             CardShare(
@@ -288,20 +315,20 @@ object FinancialAnalyticsEngine {
                 cardName = card.name,
                 bankName = displayName,
                 amountCents = cardTotal,
-                percentage = pct
+                percentageBps = percentageBps(cardTotal, grossSpendingCents)
             )
         }.sortedByDescending { it.amountCents }
 
         // 9. Maiores Estabelecimentos (Top 5)
-        val topMerchants = currentInstallments.groupBy { normalizeString(it.merchantSnapshot) }
-            .map { (_, insts) ->
-                val rawMerchant = insts.first().merchantSnapshot
-                val total = insts.sumOf { it.amount }
-                val cat = inferCategory(rawMerchant, insts.first().totalInstallments, recurringMerchants)
+        val topMerchants = currentTransactions.groupBy { normalizeString(it.merchant) }
+            .map { (_, txs) ->
+                val rawMerchant = txs.first().merchant
+                val total = txs.sumOf { it.totalAmount }
+                val cat = inferCategory(rawMerchant, txs.first().installmentsCount, recurringMerchants)
                 MerchantRank(
                     merchant = rawMerchant,
                     amountCents = total,
-                    count = insts.size,
+                    count = txs.size,
                     category = cat
                 )
             }
@@ -310,8 +337,8 @@ object FinancialAnalyticsEngine {
 
         return AnalyticsDashboardState(
             period = period,
-            selectedYear = referenceDate.year,
-            selectedMonth = referenceDate.monthValue,
+            selectedYear = referenceMonth.year,
+            selectedMonth = referenceMonth.monthValue,
             filterCardId = filterCardId,
             filterHolderId = filterHolderId,
             kpis = kpis,
@@ -320,7 +347,8 @@ object FinancialAnalyticsEngine {
             modality = modality,
             cardShares = cardShares,
             topMerchants = topMerchants,
-            filteredInstallments = currentInstallments
+            filteredInstallments = currentInstallments,
+            filteredTransactions = currentTransactions
         )
     }
 

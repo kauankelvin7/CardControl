@@ -64,7 +64,8 @@ fun CardsScreen(
     onAddExpenseForCard: (CardUi) -> Unit,
     onSeeMore: () -> Unit,
     modifier: Modifier = Modifier,
-    isDark: Boolean = isSystemInDarkTheme()
+    isDark: Boolean = isSystemInDarkTheme(),
+    cardSummaries: List<com.cardcontrol.app.ui.CardSummaryUi> = emptyList()
 ) {
     val selectedCard = remember(cards, selectedCardId) {
         cards.firstOrNull { it.id == selectedCardId } ?: cards.firstOrNull()
@@ -93,6 +94,12 @@ fun CardsScreen(
         label = "stageTint"
     )
 
+    val activeCardAccent by animateColorAsState(
+        targetValue = selectedPalette.start,
+        animationSpec = CcMotion.effectsSlow(),
+        label = "activeCardAccent"
+    )
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -107,12 +114,38 @@ fun CardsScreen(
                 )
             )
     ) {
+        if (cards.isNotEmpty()) {
+            // Aura de luz difusa ambiental com a cor do cartão selecionado (Glassmorphism & Card-Reactive Glow)
+            Canvas(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(340.dp)
+                    .align(Alignment.TopCenter)
+            ) {
+                drawCircle(
+                    brush = Brush.radialGradient(
+                        colors = listOf(
+                            activeCardAccent.copy(alpha = if (isDark) 0.36f else 0.22f),
+                            activeCardAccent.copy(alpha = if (isDark) 0.14f else 0.08f),
+                            Color.Transparent
+                        ),
+                        center = Offset(size.width * 0.5f, size.height * 0.40f),
+                        radius = size.width * 0.70f
+                    ),
+                    center = Offset(size.width * 0.5f, size.height * 0.40f),
+                    radius = size.width * 0.70f
+                )
+            }
+        }
+
         if (cards.isEmpty()) {
             EmptyCardsState(
                 onAddCard = onAddCard,
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(horizontal = 24.dp)
+                    .padding(bottom = 148.dp)
             )
         } else {
             val selectedIndex = cards.indexOfFirst { it.id == selectedCard?.id }.coerceAtLeast(0)
@@ -121,7 +154,7 @@ fun CardsScreen(
                 modifier = Modifier
                     .fillMaxSize()
                     .verticalScroll(rememberScrollState())
-                    .padding(bottom = 112.dp),
+                    .padding(bottom = 148.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Spacer(Modifier.height(8.dp))
@@ -167,14 +200,35 @@ fun CardsScreen(
 
                     Spacer(Modifier.height(16.dp))
 
-                    // 4. Duas Ações Primárias Contextuais Equilibradas (C7 e Seção 3.2)
+                    // 4. Duas Ações Primárias Contextuais Equilibradas (C7 e Seção 3.2 com Brand Accent)
                     CardPrimaryActions(
-                        card = selectedCard,
                         onAddExpense = { onAddExpenseForCard(selectedCard) },
                         onSeeInvoices = onSeeMore,
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(horizontal = 20.dp)
+                            .padding(horizontal = 20.dp),
+                        brandColor = activeCardAccent
+                    )
+
+                    Spacer(Modifier.height(16.dp))
+
+                    val summaryForCard = cardSummaries.firstOrNull { it.card.id == selectedCard.id }
+                    val committedCents = summaryForCard?.globalCommitted ?: 0L
+                    val availableCents = summaryForCard?.availableLimit ?: selectedCard.totalLimit
+
+                    CardMetricsBentoSection(
+                        card = selectedCard,
+                        committedCents = committedCents,
+                        availableCents = availableCents,
+                        onFlipCard = {
+                            flippedCardId = if (isFlipped) null else selectedCard.id
+                        },
+                        onEditCard = { onEditCard(selectedCard) },
+                        onDeleteCard = { onDeleteCard(selectedCard) },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp),
+                        brandColor = activeCardAccent
                     )
 
                     Spacer(Modifier.height(24.dp))
@@ -246,7 +300,7 @@ fun EmptyCardsState(
 
         Button(
             onClick = onAddCard,
-            shape = RoundedCornerShape(14.dp),
+            shape = CcShapes.button,
             colors = ButtonDefaults.buttonColors(
                 containerColor = MaterialTheme.colorScheme.primary,
                 contentColor = MaterialTheme.colorScheme.onPrimary

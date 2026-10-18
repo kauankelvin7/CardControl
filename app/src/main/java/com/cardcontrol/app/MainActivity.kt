@@ -23,6 +23,12 @@ import com.cardcontrol.app.ui.theme.CardControlTheme
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
+        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
+            setShowWhenLocked(true)
+            setTurnScreenOn(true)
+            (getSystemService(android.app.KeyguardManager::class.java))?.requestDismissKeyguard(this, null)
+        }
+        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         // Inicializa a janela no modo edge-to-edge sem qualquer faixa preta
         enableEdgeToEdge()
         super.onCreate(savedInstanceState)

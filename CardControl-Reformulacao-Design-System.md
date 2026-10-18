@@ -395,7 +395,7 @@ Estados: default · pressed · focused · disabled (38% opacidade) · loading (s
 - Proporção 1,586:1 (cartão real), `shape.lg`, gradiente próprio derivado da **cor do cartão** (2 tons, 6% de ruído), monograma do banco, "•••• 0359" em `mono.sm`, "Fecha dia 9 · Vence dia 15", e o **LimitMeter** na base. Carrossel horizontal com *peek*; toque abre detalhe. Editar/Excluir ficam no detalhe (⋮), **não** na lista → corrige P10.
 
 **TransactionRow**
-- Ícone de categoria (40dp) · loja (`body.md`, 1 linha) · pessoa + parcela ("3/6 · Jheymison") em `body.sm`/`text.secondary` · valor à direita (`num.md`). Selo "capturado" (ícone de sino) vs "manual". Swipe: editar / excluir (com *undo* em snackbar).
+- Ícone de categoria (40dp) · loja (`body.md`, 1 linha) · pessoa + parcela ("3/6 · Lucas") em `body.sm`/`text.secondary` · valor à direita (`num.md`). Selo "capturado" (ícone de sino) vs "manual". Swipe: editar / excluir (com *undo* em snackbar).
 
 **ReviewBanner / ReviewCard**
 - Banner "N compras para revisar" (`status.info.container`). Card de revisão: loja detectada (editável), valor, parcelas, cartão sugerido, pessoa sugerida; ações **Confirmar** (Primary) · **Editar** · **Descartar**.
@@ -463,7 +463,7 @@ Ajustes (engrenagem) ─ Captura automática · Alertas por e-mail · Privacidad
 │ 🔔 3 compras para revisar   ›  │  ReviewBanner
 ├────────────────────────────────┤
 │ Pessoas                Ver todas│
-│ (J) Jheymison   R$ 1.210,40  ▓▓│
+│ (L) Lucas       R$ 1.210,40  ▓▓│
 │ (M) Maria       R$   640,10  ▓ │
 ├────────────────────────────────┤
 │ Próximos 6 meses (parcelas)    │  mini barras
@@ -493,7 +493,7 @@ Ajustes (engrenagem) ─ Captura automática · Alertas por e-mail · Privacidad
 
 **S3 · Detalhe da pessoa (conta corrente)**
 ```
-│ ◂  Jheymison           ⋮        │
+│ ◂  Lucas               ⋮        │
 │ Deve este mês                   │
 │ R$ 1.210,40   [ Parcial ]       │
 │ ▓▓▓▓▓▓░░  sublimite R$ 2.000    │

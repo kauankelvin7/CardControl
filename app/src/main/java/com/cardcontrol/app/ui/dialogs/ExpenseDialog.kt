@@ -37,6 +37,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.cardcontrol.app.data.local.CreditCardEntity
 import com.cardcontrol.app.data.local.HolderEntity
+import com.cardcontrol.app.data.repository.CardRepository
 import com.cardcontrol.app.ui.designsystem.CCTheme
 import com.cardcontrol.app.ui.designsystem.CcShapes
 import com.cardcontrol.app.util.MoneyUtils
@@ -63,6 +64,7 @@ fun ExpenseDialog(
     var merchant by remember { mutableStateOf("") }
     var amount by remember { mutableStateOf("") }
     var parcels by remember { mutableStateOf("1") }
+    var formError by remember { mutableStateOf<String?>(null) }
     var selectedCardId by remember(cards, initialCardId) {
         mutableLongStateOf(cards.firstOrNull { it.id == initialCardId }?.id ?: cards.first().id)
     }
@@ -95,6 +97,7 @@ fun ExpenseDialog(
                         options = cards.map { it.id to "${it.name} (${it.lastFourDigits})" },
                         selectedId = selectedCardId,
                         onSelect = { cardId ->
+                            formError = null
                             selectedCardId = cardId
                             selectedHolderId = cards.find { it.id == cardId }?.defaultHolderId
                                 ?.takeIf { holderId -> holders.any { it.id == holderId } }
@@ -102,17 +105,37 @@ fun ExpenseDialog(
                         }
                     )
                 }
+                val selectedCard = cards.firstOrNull { it.id == selectedCardId } ?: cards.first()
+                val targetInvoiceDate = CardRepository.calculateFirstInstallmentMonth(
+                    java.time.LocalDate.now(),
+                    selectedCard.closingDay
+                )
+                Text(
+                    text = "Fatura destino: %02d/%d (fecha dia %d)".format(
+                        targetInvoiceDate.monthValue,
+                        targetInvoiceDate.year,
+                        selectedCard.closingDay
+                    ),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
                 Text("Responsável pelo Gasto:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     LiquidPillSelector(
                         options = holders.map { it.id to it.name },
                         selectedId = selectedHolderId,
-                        onSelect = { selectedHolderId = it }
+                        onSelect = {
+                            selectedHolderId = it
+                            formError = null
+                        }
                     )
                 }
                 GlassTextField(
                     value = merchant,
-                    onValueChange = { merchant = it },
+                    onValueChange = {
+                        merchant = it
+                        formError = null
+                    },
                     label = "Estabelecimento",
                     placeholder = "Ex: Mercado Livre, Posto...",
                     leadingIcon = { Icon(Icons.Default.Storefront, null, tint = MaterialTheme.colorScheme.primary) },
@@ -120,7 +143,10 @@ fun ExpenseDialog(
                 )
                 GlassTextField(
                     value = amount,
-                    onValueChange = { amount = it },
+                    onValueChange = {
+                        amount = it
+                        formError = null
+                    },
                     label = "Valor Total (R$)",
                     placeholder = "0,00",
                     leadingIcon = { Icon(Icons.Default.AttachMoney, null, tint = CCTheme.extras.semantics.success) },
@@ -128,12 +154,18 @@ fun ExpenseDialog(
                 )
                 GlassTextField(
                     value = parcels,
-                    onValueChange = { parcels = it },
+                    onValueChange = {
+                        parcels = it
+                        formError = null
+                    },
                     label = "Parcelas (1 a 72)",
                     placeholder = "1",
                     leadingIcon = { Icon(Icons.Default.Layers, null, tint = MaterialTheme.colorScheme.primary) },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number, imeAction = ImeAction.Done)
                 )
+                formError?.let { message ->
+                    Text(message, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
+                }
             }
         },
         dismissButton = {
@@ -146,6 +178,7 @@ fun ExpenseDialog(
                 onClick = {
                     val v = MoneyUtils.parseToCents(amount) ?: 0L
                     if (merchant.isNotBlank() && v > 0L) {
+                        formError = null
                         onConfirm(
                             selectedCardId,
                             selectedHolderId,
@@ -153,6 +186,8 @@ fun ExpenseDialog(
                             v,
                             (parcels.toIntOrNull() ?: 1).coerceIn(1, 72)
                         )
+                    } else {
+                        formError = "Informe o estabelecimento e um valor maior que R$ 0,00."
                     }
                 },
                 colors = ButtonDefaults.buttonColors(

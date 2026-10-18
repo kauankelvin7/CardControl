@@ -157,6 +157,51 @@ class RoomV3ToV4MigrationTest {
         override fun observeHolders(): kotlinx.coroutines.flow.Flow<List<HolderEntity>> =
             kotlinx.coroutines.flow.flowOf(holders.toList())
         override suspend fun getHolderById(id: Long): HolderEntity? = holders.firstOrNull { it.id == id }
+        override suspend fun getAllHoldersSnapshot(): List<HolderEntity> = holders.toList()
+        override suspend fun updateHolder(holder: HolderEntity): Int {
+            val index = holders.indexOfFirst { it.id == holder.id }
+            if (index < 0) return 0
+            holders[index] = holder
+            return 1
+        }
+        override suspend fun reassignCardsDefaultHolder(oldHolderId: Long, newHolderId: Long?) {
+            cards.indices.forEach { index ->
+                if (cards[index].defaultHolderId == oldHolderId) cards[index] = cards[index].copy(defaultHolderId = newHolderId)
+            }
+        }
+        override suspend fun reassignTransactionsHolder(oldHolderId: Long, newHolderId: Long) {
+            transactions.indices.forEach { index ->
+                if (transactions[index].holderId == oldHolderId) transactions[index] = transactions[index].copy(holderId = newHolderId)
+            }
+        }
+        override suspend fun reassignInstallmentsHolder(oldHolderId: Long, newHolderId: Long) {
+            installments.indices.forEach { index ->
+                if (installments[index].holderId == oldHolderId) installments[index] = installments[index].copy(holderId = newHolderId)
+            }
+        }
+        override suspend fun reassignPaymentsHolder(oldHolderId: Long, newHolderId: Long) {
+            payments.indices.forEach { index ->
+                if (payments[index].holderId == oldHolderId) payments[index] = payments[index].copy(holderId = newHolderId)
+            }
+        }
+        override suspend fun reassignRecurringChargesHolder(oldHolderId: Long, newHolderId: Long) {
+            recurringCharges.indices.forEach { index ->
+                if (recurringCharges[index].holderId == oldHolderId) recurringCharges[index] = recurringCharges[index].copy(holderId = newHolderId)
+            }
+        }
+        override suspend fun deleteHolderIfUnused(id: Long): Int {
+            val hasHistory = transactions.any { it.holderId == id } || installments.any { it.holderId == id } || payments.any { it.holderId == id }
+            return if (!hasHistory && holders.removeAll { it.id == id }) 1 else 0
+        }
+        override suspend fun deleteHolderById(id: Long): Int {
+            if (!holders.removeAll { it.id == id }) return 0
+            reassignCardsDefaultHolder(id, null)
+            transactions.removeAll { it.holderId == id }
+            installments.removeAll { it.holderId == id }
+            payments.removeAll { it.holderId == id }
+            recurringCharges.removeAll { it.holderId == id }
+            return 1
+        }
 
         override suspend fun insertCard(card: CreditCardEntity): Long {
             cards.add(card)
@@ -186,6 +231,11 @@ class RoomV3ToV4MigrationTest {
         override suspend fun insertInstallments(installments: List<com.cardcontrol.app.data.local.InstallmentEntity>) {
             this.installments.addAll(installments)
         }
+        override suspend fun deleteInstallmentsByTransaction(transactionId: Long) {
+            installments.removeAll { it.transactionId == transactionId }
+        }
+        override suspend fun deleteTransactionById(transactionId: Long): Int =
+            if (transactions.removeAll { it.id == transactionId }) 1 else 0
         override suspend fun countRecentDuplicate(hash: String, minTimestamp: Long): Int {
             return transactions.count { it.dedupHash == hash && it.purchaseTimestamp >= minTimestamp }
         }
@@ -257,6 +307,8 @@ class RoomV3ToV4MigrationTest {
 
         override suspend fun getAllTransactionsSnapshot(): List<com.cardcontrol.app.data.local.TransactionEntity> =
             transactions.toList().sortedBy { it.purchaseTimestamp }
+        override fun observeAllTransactions(): kotlinx.coroutines.flow.Flow<List<com.cardcontrol.app.data.local.TransactionEntity>> =
+            kotlinx.coroutines.flow.flowOf(transactions.toList().sortedBy { it.purchaseTimestamp })
 
         override suspend fun getTotalActiveRecurringAmount(): Long =
             recurringCharges.filter { it.isActive }.sumOf { it.expectedAmount }

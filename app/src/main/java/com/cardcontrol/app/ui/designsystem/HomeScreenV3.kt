@@ -135,7 +135,7 @@ fun HomeScreenV3(
                     closingAndDueDateText = "Fecha em 4 dias · Vence dia 15",
                     usedLimitCents = 349000L,
                     totalLimitCents = 485000L,
-                    onAbaterClick = {},
+                    onRegisterPaymentClick = {},
                     onShareClick = {},
                     hidden = discreteMode
                 )
@@ -192,8 +192,8 @@ fun HomeScreenV3(
                     }
 
                     PersonRow(
-                        name = "Jheymison",
-                        initial = "J",
+                        name = "Lucas",
+                        initial = "L",
                         avatarColor = CCCategorical.InterOrange,
                         amountCents = 121040L, // R$ 1.210,40
                         sublimitCents = 200000L, // R$ 2.000,00
