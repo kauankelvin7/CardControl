@@ -1,4 +1,4 @@
-version: "2.3.0"
+﻿version: "2.3.0"
 project: "CardControl"
 engine: "Android Native (Kotlin + Compose + Room)"
 
@@ -135,3 +135,68 @@ tasks:
     owner: "UI/UX / Architecture / Branding (Gemini - Continuidade)"
     dependencies: ["TASK-018", "TASK-019"]
     verification: "MainScreen.kt (BottomBar Faturas/Cartoes/Analises + Engrenagem Configuracoes com BackHandler), ic_launcher_foreground.xml e ic_launcher_background.xml vetoriais Vitrine, revisao read-only Flash, gates 100% PASS e novo APK debug final (SHA-256: 53E98029BB057C8B537F4386C780D71E9483992CA133DBECD1F328F07BF8D65A)"
+
+  - id: "TASK-021"
+    title: "Faturas, Lancar Compra, Abatimento e Sanitizacao de Titulares: Fluxo E2E Real"
+    status: "COMPLETED"
+    owner: "Codex - Arquitetura e Plano (Step A)"
+    dependencies: ["TASK-018", "TASK-019", "TASK-020"]
+    verification: "145 unit tests PASS (17:58:36), assembleDebug APK (17:59:30, SHA-256 aeb46c26cc3f838adaf94ed4e636f85c44219677129ac020c61eaaa776bc891f), lintDebug (18:01:00), git diff --check PASS; physical device realme C71 (007448c90e35c79b) verified (Faturas Nov/2026, titular deduplication, +Compra validation, Cancelar/Abater, gear Settings/theme toggle). E2E purchase success on live DB intentionally not attempted to protect user data."
+
+  - id: "TASK-022"
+    title: "Auditoria Completa de UX, Responsividade em 360dp e Quebras Visuais (Step B)"
+    status: "COMPLETED"
+    owner: "Codex (escritor único) / Flash (revisão read-only concluída com ressalvas)"
+    dependencies: ["TASK-021"]
+    verification: "APK SHA-256 0D9188465C43B12CAB175B2B3640D4080DDA8E3F1DFC65BA33431BDBB82981ED instalado via adb install -r; lastUpdateTime 19:27:48. Capturas 19:33/19:37 mostram fatura Nov/2026 R$300 em uma parcela e validação/cancelamento sem gravar. Capturas antigas 18:59–19:01 antecedem a instalação e não comprovam estado atual. Flash read-only APROVADO COM RESSALVAS (P0=0, P1=dataset físico esperado ausente, P2=cold-start é hipótese). UI mostra titular `teste`, não Titular Principal; banco não foi lido, logo preservação/perda não confirmada. Diálogo real foi aberto, erro de campos vazios permaneceu visível e Cancelar fechou sem persistência. P2 visual residual: helper 'Melhor compra apó...' truncado. Gates: 155 testes, lintDebug, assembleDebug e git diff --check PASS."
+
+  - id: "TASK-023"
+    title: "Refatoração Visual do CardControl com Referência no Leve (Tinta & Papel, Bordas Editoriais 1px, Diálogos, Cards e Atomicidade Room)"
+    status: "COMPLETED"
+    owner: "Antigravity (Maestro)"
+    dependencies: ["TASK-022"]
+    verification: "CcShapes.kt, GlassTextField.kt, LiquidGlass.kt, HeroBalanceCard.kt, CardActionsRow.kt, AnalyticsScreen.kt, MainScreen.kt, AppDao.kt, CardRepository.kt; 155/155 unit tests PASS; lintDebug PASS; assembleDebug PASS (APK SHA-256 fbdeb8b5ab864a2ef8ba9956c7890b1e29fc045ca807aef837f7db871b084df0); git diff --check PASS."
+
+  - id: "TASK-024"
+    title: "Revisao Visual Integral: Glassmorphism, Dynamic Theming, Descongestionamento TopBar e Graficos"
+    status: "COMPLETED"
+    owner: "Gemini - Continuidade (Maestro Operacional)"
+    dependencies: ["TASK-022", "TASK-023"]
+    verification: "Glassmorphism com gradientes foscos e specular highlight 1px em Faturas Hero Card, InvoiceActionButton, CardMetricsBentoSection e NavigationBar; aura ambiental difusa (radial glow) em CardsScreen.kt com cor do banco ativo; botoes, badges e barra de progresso com dynamic theming e luminance(); TopBar descongestionada com botao Novo compacto e respiro 4dp; CcBarChart com grid horizontal e CcDonutChart 155dp com glow central; 155/155 unit tests PASS, lintDebug PASS, assembleDebug PASS (APK SHA-256 7C9F7FBF146080B7827CB1FC7599C494D8EAC3985B29D92C71B107669196BD7A), git diff --check PASS; zero push realizado."
+
+  - id: "TASK-025"
+    title: "Redesign visual CardControl baseado no sistema de design real do Leve"
+    status: "COMPLETED"
+    owner: "Maestro (decisão e integração) / Design System & Layout Review (auditoria read-only) / Gemini - Continuidade (implementação após handoff) / APK Validator (QA)"
+    dependencies: ["TASK-024"]
+    verification: "TopBar com gradiente vertical ultratranslucido sem divisor solido; botao 3D Flip circular minimalista sem texto 3D; Floating Glass Dock inferior de 32dp com padding de overscroll de 148dp; 160/160 unit tests PASS; lintDebug PASS; assembleDebug PASS (APK SHA-256: E99F3D151E27AF2157A53A538D7FB829BB064514FE69BDBBA7B8E1E0576DF3FD)."
+
+  - id: "TASK-026"
+    title: "Proteção transacional contra exclusão de titular com histórico financeiro"
+    status: "COMPLETED"
+    owner: "Auditor de Data Integrity / Room"
+    dependencies: ["TASK-025"]
+    verification: "AppDao.kt, CardRepository.kt, MainViewModel.kt, SecurityAndDomainTestHarness.kt; 159/159 testes unitários PASS; protecao contra remocao em cascata de recurring_charges; gates PASS."
+
+  - id: "TASK-027"
+    title: "Eliminar flicker de período na inicialização de Análises (cold start)"
+    status: "COMPLETED"
+    owner: "Auditor de Data Integrity / Room"
+    dependencies: ["TASK-026"]
+    verification: "resolveInitialInvoicePeriod testada em multiplos cenarios no SecurityAndDomainTestHarness.kt; gates PASS."
+
+  - id: "TASK-028"
+    title: "Correção da Captura de Compras do Banco Inter (Bare Amounts, Delimitação e E2E)"
+    status: "COMPLETED"
+    owner: "Antigravity (Maestro)"
+    dependencies: ["TASK-027"]
+    verification: "BankNotificationParser.kt, BankNotificationParserTest.kt, BankNotificationProcessorTest.kt; 172/172 unit tests PASS; lintDebug PASS; assembleDebug PASS (APK SHA-256: CFC7270AE9652361C739FE02FEF1B9211D7634811AA442AD3DF6CF8FBF7C92E5); git diff --check PASS."
+
+  - id: "TASK-029"
+    title: "Validação em Dispositivo Físico e Observação Empírica de Push Real do Inter"
+    status: "BLOCKED"
+    owner: "Maestro / QA"
+    dependencies: ["TASK-028"]
+    verification: "Aparelho realme C71 (007448c90e35c79b) desconectado via USB; confirmacao empirica de push real pendente de recebimento pelo dispositivo."
+
+# TASK-026 clarification: scope MUST include both holder and card deletion guards; recurring_charges references BOTH parents via ON DELETE CASCADE. AppDao.deleteHolderIfUnused and deleteCardIfUnused currently guard transactions/installments/payments but omit recurring_charges; FakeAppDao mirrors this omission. Remove/restrict raw holder hard-delete, make allowed holder deletion + defaultHolderId cleanup atomic, improve user-facing failure reason, and add holder/card recurring-only regression tests plus Room-backed FK/atomicity evidence. Keep separate from TASK-025 visual work.

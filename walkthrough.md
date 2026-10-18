@@ -33,44 +33,87 @@ O redesign visual, arquitetural e funcional completo do CardControl foi executad
 
 ---
 
-## 2. Evidências Empíricas dos Gates de Engenharia
+## 2. Evidências Empíricas dos Gates de Engenharia e Checkpoint (20:54:00)
 
 Todos os gates foram executados na árvore de trabalho local, utilizando o JDK 21 Microsoft Hotspot e Android SDK em `C:\Android\Sdk`:
 
 | Gate | Comando | Resultado | Evidência / Detalhes |
 | :--- | :--- | :--- | :--- |
-| **Testes Unitários** | `.\gradlew.bat testDebugUnitTest` | **100% PASS** | **139 testes executados**, 139 aprovados, 0 falhas, 0 erros, 0 ignorados (`BUILD SUCCESSFUL in 47s`). |
-| **Linting** | `.\gradlew.bat lintDebug` | **PASS** | `BUILD SUCCESSFUL in 1m 31s` (48 actionable tasks). |
-| **Compilação Debug** | `.\gradlew.bat assembleDebug` | **PASS** | Gerado APK final `app/build/outputs/apk/debug/app-debug.apk`. |
+| **Testes Unitários** | `.\gradlew.bat testDebugUnitTest` | **100% PASS** | **155 testes executados** (12 suítes XML às 20:50:09), 155 aprovados, 0 falhas, 0 erros, 0 ignorados. |
+| **Linting** | `.\gradlew.bat lintDebug` | **PASS** | 0 erros (HTML report às 20:52:38). |
+| **Compilação Debug** | `.\gradlew.bat assembleDebug` | **PASS** | Gerado APK `app/build/outputs/apk/debug/app-debug.apk` às 20:51:33. |
 | **Verificação de Whitespace** | `git diff --check` | **PASS** | 0 erros de whitespace ou quebras de linha indesejadas. |
-| **Testes Canário de Empacotamento** | `python scripts/test_bundle_canary.py` | **PASS** | 28 arquivos canário sensíveis bloqueados. |
-| **Contrato de Revisão** | `python scripts/check_review_contract.py` | **PASS** | Conformidade de testes, migrações e CI/CD. |
+| **Validação Independente** | `APK Validator (Flash Low)` | **APROVADO** | Parecer de liberação técnica para testes manuais no hardware emitido com sucesso. |
 
-### Artefato Compilado Final
+### Artefato Compilado e Auditado no Checkpoint
 * **Arquivo:** `app/build/outputs/apk/debug/app-debug.apk`
-* **Tamanho:** 18.285.866 bytes (~17,44 MB)
-* **Data/Hora de Geração:** 2026-10-17 16:52:35
-* **SHA-256:** `53E98029BB057C8B537F4386C780D71E9483992CA133DBECD1F328F07BF8D65A`
+* **Tamanho:** 18.307.348 bytes (~17,46 MB)
+* **Data/Hora de Geração:** 2026-10-17 20:51:33
+* **SHA-256:** `fbdeb8b5ab864a2ef8ba9956c7890b1e29fc045ca807aef837f7db871b084df0`
+* **Status no Dispositivo:** Instalado com sucesso via `adb install -r` às 20:55:21 no aparelho físico (serial `007448c90e35c79b`, realme C71), preservando intactos o banco de dados e as configurações locais do usuário.
 
 ---
 
-## 3. Guia de Instalação e Validação Manual pelo Usuário
+## 3. Matriz de Testes Reais no Hardware (realme C71 / RMX5303)
 
-Conforme alinhamento e autorização expressa, o requisito de cabo USB/emulador foi dispensado para os agentes. O usuário testará o aplicativo diretamente em seu aparelho:
+Testes executados sem mutação do banco de dados real do usuário (compras/pagamentos não submetidos; persistência validada por testes automatizados em memória):
 
-1. **Transferência do APK:**
-   - Copie o arquivo gerado em `app/build/outputs/apk/debug/app-debug.apk` para seu smartphone (via Google Drive, WhatsApp Web, cabo ou adb manual).
-2. **Instalação:**
-   - Abra o arquivo `.apk` no celular e confirme a instalação (permitindo a instalação de fontes desconhecidas para testes de depuração).
-3. **Itens para Validação Visual:**
-   - **Ícone do App:** Verificar o novo ícone vetorial adaptativo com fundo Petróleo, chip Cobre e barras financeiras.
-   - **Carteira 3D (Aba Cartões):** Deslizar entre os cartões, observar as texturas e cores de cada banco (Nubank, Itaú, Inter, etc.) e tocar para virar o cartão no Flip 3D.
-   - **Análises (Aba Análises):** Visualizar os gráficos nativos de barras mensais, rosca de categorias e ranking de compras. Alternar períodos (Mês atual, 3M, 6M) e tocar nas fatias para abrir o drilldown.
-   - **Configurações (Engrenagem):** Tocar na engrenagem no canto superior direito para gerenciar permissões de notificações, alternar tema Claro/Escuro e configurar e-mail. Testar o botão Voltar (físico/gesto) para retornar às abas principais.
+| Cenário / Fluxo Testado | Resultado | Comportamento Observado |
+| :--- | :--- | :--- |
+| **Faturas: Próximo Mês (Nov/2026)** | **PASS** | Exibe fatura aberta de Nov/2026 com total de R$ 300,00 e detalhamento das parcelas. |
+| **Cartões -> 'Ver faturas'** | **PASS** | Navega contextualmente para a aba Faturas. |
+| **Inicialização de Faturas** | **PASS** | Após instalar o novo build, o app inicializa diretamente no ciclo aberto de Nov/2026. |
+| **Saneamento de Titulares** | **PASS** | Registros duplicados consolidados com sucesso em um único titular cadastrado. |
+| **Diálogo '+ Compra' (Destino e Titular)** | **PASS** | Destino aponta para 11/2026 (fechamento dia 9) e lista apenas uma opção de titular. |
+| **Validação de Campos Vazios em '+ Compra'** | **PASS** | Exibe mensagem *"Informe o estabelecimento e um valor maior que R$ 0,00."* e mantém diálogo aberto. |
+| **Cancelamento em '+ Compra'** | **PASS** | Botão 'Cancelar' fecha o diálogo sem persistir alterações. |
+| **Diálogo 'Abater'** | **PASS** | Abre diálogo 'Registrar Abatimento / Pix' e 'Cancelar' fecha sem registrar pagamento. |
+| **Configurações e Tema** | **PASS** | Engrenagem abre Configurações, alternância Claro/Escuro funcional e botão Voltar retorna para Análises. |
+
+### Quebras Visuais Mapeadas para o STEP B (Em Andamento com Codex):
+* `[FAIL/OPEN]` **Faturas:** Valor R$ 300,00 no card de titular quebra verticalmente para "R$ 300,0" + "0".
+* `[FAIL/OPEN]` **Cartões:** Botão CTA principal trunca o texto "Lançar compra" para "Lançar com...".
+* `[FAIL/OPEN]` **Cartões:** Linha CardMetrics colide e trunca "Comprometido: R$300,00Total: R$4.8…".
+* `[FAIL/OPEN]` **Análises:** Badge de 6% sobrepõe "CAPACIDADE DA CARTEIRA", quebra palavra e exibe plural "1 cartão(ões)".
+* `[FAIL/OPEN]` **Configurações:** Textos descritivos "Titulares e dependentes…" e "Comprovantes opcionais via Gm…" truncam.
+
+> **Evidências Visuais Locais:** Arquivos salvos em diretório temporário local autorizado (`cc-latest-build-settled.png`, `cc-invoices-next-month.png`, `cc-new-expense-dialog.png`, `cc-new-expense-validation.png`, `cc-cards-tab.png`, `cc-analytics-current.png`, `cc-settings-current.png`, `cc-settings-light.png`). Nenhum dado sensível ou print é versionado no Git.
 
 ---
 
-## 4. Estado de Governança
+## 4. TASK-024: Revisão Visual Integral, Glassmorphism, Dynamic Theming e Refinamento de Gráficos
 
-- **Árvore de Trabalho:** Preservada integralmente com todos os diffs locais e os 6 commits à frente da origem. Proibidos `reset`, `clean`, `checkout`, `stash`, `commit` ou `push` sem autorização explícita final.
-- **Handoff:** Submetido para revisão final read-only do revisor Flash e homologação de fechamento pelo maestro Argon.
+A rodada de revisão visual requerida pelo usuário foi concluída com sucesso:
+
+1. **Glassmorphism & Diffuse Specular Highlight:**
+   - **Faturas Hero Card:** Gradiente fosco multicamadas (`surfaceContainerHigh 0.88f` -> `surfaceContainer 0.72f`) com borda direcional de 1px simulando incidência de luz de estúdio (`White 0.35f` -> `primary 0.30f` -> `Transparent` -> `White 0.10f`).
+   - **InvoiceActionButton:** Botões secundários com superfície translúcida e bordas de reflexo sutil; botão primário com gradiente vertical e realce no topo.
+   - **CardMetricsBentoSection:** Painel Bento executivo do cartão selecionado estilizado como vidro fosco com bordas reflexivas.
+   - **NavigationBar:** Base translúcida com container em `0.94f` e `HorizontalDivider` como linha de luz especular.
+
+2. **Dynamic Theming Reativo na Carteira de Cartões (`CardsScreen.kt` & `CardActionsRow.kt`):**
+   - **Aura Difusa (Ambient Radial Glow):** Iluminação difusa em Compose Canvas atrás do carrossel 3D utilizando a cor primária do banco emissor do cartão ativo (ex: `#FF7A00` Banco Inter, `#820AD1` Nubank, etc.), conferindo imersão e identidade ao cartão selecionado.
+   - **Ação Primária Harmonizada:** Botão `+ Lançar compra` adota a cor do cartão ativo com gradiente suave e cálculo dinâmico de contraste de texto por luminância (`luminance()`).
+   - **Métricas Reativas:** Indicador `LIMITE DISPONÍVEL`, chip de porcentagem em uso e barra de progresso adaptados à cor do cartão selecionado.
+   - **Ação de Virar 3D:** Adicionado ícone de rotação `Refresh` e label claro "Virar 3D".
+
+3. **Descongestionamento da TopBar (`MainScreen.kt`):**
+   - Espaçamento horizontal ampliado para 8.dp.
+   - Botão de adicionar cartão reduzido de "Novo cartão" para "Novo" com borda translúcida, eliminando colisões com a engrenagem em telas compactas de 360dp / 720px.
+   - Inserido espaçador de respiro (`Spacer(4.dp)`) antes do ícone de Configurações.
+   - Bordas de 1px adicionadas a todos os botões circulares de ação rápida (Modo Discreto e Configurações).
+
+4. **Refinamento de Gráficos e Legibilidade (`CcCharts.kt` & `FinancialAnalyticsEngine.kt`):**
+   - **CcBarChart:** Adicionadas 3 linhas horizontais sutis de grade, preenchimento das barras com gradiente vertical e cantos arredondados, e linha de realce especular (`StrokeCap.Round`) no topo da barra selecionada.
+   - **CcDonutChart:** Diâmetro equilibrado para 155dp (otimizado para telas compactas), espessura de 18dp e aura radial central na cor da categoria selecionada.
+   - **Eliminação de Truncamento:** Categoria `SpendingCategory.OUTROS` renomeada de "Não categorizado" para "Outros", eliminando o truncamento feio `"Não ... 100%"`.
+
+---
+
+## 5. Estado de Governança e Papéis
+
+- **Árvore de Trabalho:** Preservada integralmente com todos os diffs locais. Proibidos `reset`, `clean`, `checkout`, `stash`, `commit` ou `push` sem autorização expressa.
+- **Novo APK Gerado:** `app/build/outputs/apk/debug/app-debug.apk` (SHA-256: `7C9F7FBF146080B7827CB1FC7599C494D8EAC3985B29D92C71B107669196BD7A`).
+- **Gates Automatizados:** 155/155 unit tests PASS, lintDebug PASS, assembleDebug PASS, git diff --check PASS.
+- **Dispositivo Físico:** realme C71 desconectado (`Present = False`). Conforme determinação do usuário, USB não é bloqueio; o usuário instalará e testará manualmente sem alegações prematuras de inspeção visual do dispositivo desconectado.
+- **Git Push:** ZERO push realizado. Aguardando aprovação explícita do usuário.
