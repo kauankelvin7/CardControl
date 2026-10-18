@@ -1,8 +1,8 @@
-﻿# CardControl — Ponto de Retomada e Estado Canônico
+# CardControl — Ponto de Retomada e Estado Canônico
 
 - Data da Última Auditoria/Atualização: 17 de Outubro de 2026, 21:40 -03
 - Branch ativa: `main`
-- HEAD SHA: `9e38e72abe8286c08a6e198a44d14cd6271e56bb` (sem commit das alterações locais)
+- HEAD SHA: `82ba3d2` (sem commit das alterações locais)
 - Versão Atual: `v2.3.0` (versionCode 5) — Vitrine & Leve Editorial Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`) com atomicidade @Transaction e proteção estrita contra deleção em cascata
 - Novo APK Debug Gerado e Auditado (TASK-024): `app/build/outputs/apk/debug/app-debug.apk`
