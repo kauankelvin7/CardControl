@@ -1,4 +1,4 @@
-﻿version: "2.3.0"
+version: "2.4.0"
 project: "CardControl"
 engine: "Android Native (Kotlin + Compose + Room)"
 
@@ -198,5 +198,12 @@ tasks:
     owner: "Maestro / QA"
     dependencies: ["TASK-028"]
     verification: "Aparelho realme C71 (007448c90e35c79b) desconectado via USB; confirmacao empirica de push real pendente de recebimento pelo dispositivo."
+
+  - id: "TASK-030"
+    title: "Saneamento Estrutural do Repositório, Limpeza de Logs/Tooling Redundante e Lançamento da Release v2.4.0"
+    status: "COMPLETED"
+    owner: "Antigravity (Orquestrador)"
+    dependencies: ["TASK-028"]
+    verification: "Remoção de logs residuais, exclusão de pastas duplicadas (.hermes, .claude, .continue, .trae, .maestri), binários soltos e .md já implementados; bump para v2.4.0 (versionCode 6); 172/172 unit tests PASS; assembleDebug PASS; scripts de canário e estado PASS."
 
 # TASK-026 clarification: scope MUST include both holder and card deletion guards; recurring_charges references BOTH parents via ON DELETE CASCADE. AppDao.deleteHolderIfUnused and deleteCardIfUnused currently guard transactions/installments/payments but omit recurring_charges; FakeAppDao mirrors this omission. Remove/restrict raw holder hard-delete, make allowed holder deletion + defaultHolderId cleanup atomic, improve user-facing failure reason, and add holder/card recurring-only regression tests plus Room-backed FK/atomicity evidence. Keep separate from TASK-025 visual work.

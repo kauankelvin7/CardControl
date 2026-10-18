@@ -492,3 +492,17 @@ A UI Gemini Continuidade informa que compila/gera APK, porém o APK não mudou d
 - Criar testes contextuais para R$ 112,86 (11.286 centavos), estabelecimento, crédito nacional, final do cartão e 1 parcela; preservar rejeição fail-closed para pacote desconhecido, valores/finais conflitantes, estorno, fatura e notificação truncada/ambígua.
 - Não houve alteração no código de produção nesta retomada; apenas docs de handoff. Não editar BankNotificationParser.kt/testes até confirmar quem detém o writer. Critérios de aceitação completos em .agents/MAESTRO_DESIGN_HANDOFF_2026-10-17.md.
 - O nome do app/banco emissor ainda não foi informado. A equipe deve obter o pacote de origem por reprodução/diagnóstico redigido antes de decidir qualquer mudança na allowlist.
+
+
+### Saneamento Estrutural e Release v2.4.0 — 18/10/2026
+
+- **Responsável:** Antigravity (Orquestrador)
+- **Status:** - [x] CONCLUÍDO — TASK-030: Saneamento do repositório, exclusão de tooling redundante (.hermes, .claude, etc.), limpeza de logs e preparação da Release v2.4.0
+- **Ações Realizadas:**
+  - Remoção de logs residuais de JVM (hs_err_pid*.log, replay_pid*.log).
+  - Remoção de pastas de extensões/ferramentas redundantes (.hermes/, .claude/, .continue/, .trae/, .maestri/), unificando 100% da governança em .agents/.
+  - Remoção de executáveis .apk soltos na raiz (app-debug.apk) e diretório legado dist/CardControl-Debug-APK.
+  - Remoção de arquivos .md temporários e já implementados na raiz e em .agents/.
+  - Atualização da versão para v2.4.0 (versionCode 6) em app/build.gradle.kts.
+  - Atualização da documentação (README.md, AGENTS.md, CARDCONTROL_STATE.md, CARDCONTROL_TASKS.yaml).
+  - Validação completa dos gates: testDebugUnitTest (172 testes PASS), assembleDebug (PASS), check_state.ps1 (PASS), test_bundle_canary.py (PASS).

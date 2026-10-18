@@ -132,11 +132,14 @@ Nenhuma funcionalidade pode ser dada como concluída sem execução e aprovaçã
 
 - **Testes Unitários:**
   ```powershell
-  $env:JAVA_HOME="C:\Program Files\Java\jdk-17"; .\gradlew.bat testDebugUnitTest --console=plain "-Pkotlin.compiler.execution.strategy=in-process"
+  # Execução automatizada (detecta JDK 17 / Microsoft JDK 21 automaticamente):
+  powershell -ExecutionPolicy Bypass -File .agents/skills/cardcontrol-verify/scripts/verify.ps1 -TestsOnly
+  # Ou definindo JAVA_HOME:
+  $env:JAVA_HOME="C:\Program Files\Microsoft\jdk-21.0.12.101-hotspot"; .\gradlew.bat testDebugUnitTest --console=plain "-Pkotlin.compiler.execution.strategy=in-process"
   ```
 - **Lint e Compilação de Debug:**
   ```powershell
-  $env:JAVA_HOME="C:\Program Files\Java\jdk-17"; .\gradlew.bat lintDebug assembleDebug --console=plain --max-workers=2 "-Pkotlin.compiler.execution.strategy=in-process"
+  powershell -ExecutionPolicy Bypass -File .agents/skills/cardcontrol-verify/scripts/verify.ps1 -AssembleOnly
   ```
 - **Verificação de Whitespace e Diff:**
   ```powershell
@@ -161,11 +164,11 @@ O repositório possui Agent Skills modulares em `.agents/skills/` para padroniza
 
 | Skill | Caminho | Finalidade |
 | :--- | :--- | :--- |
-| **`cardcontrol-verify`** | [.agents/skills/cardcontrol-verify/SKILL.md](file:///c:/Users/Kauan/Desktop/CardControl/.agents/skills/cardcontrol-verify/SKILL.md) | Execução automatizada dos gates de teste (`testDebugUnitTest`) e build (`assembleDebug`), detecção inteligente de JDK e relatórios. |
-| **`bank-notification-parser`** | [.agents/skills/bank-notification-parser/SKILL.md](file:///c:/Users/Kauan/Desktop/CardControl/.agents/skills/bank-notification-parser/SKILL.md) | Guia e pipeline de extração de notificações bancárias, deduplicação SHA-256 (120s), sanitização e testes no Harness. |
-| **`room-db-migration`** | [.agents/skills/room-db-migration/SKILL.md](file:///c:/Users/Kauan/Desktop/CardControl/.agents/skills/room-db-migration/SKILL.md) | Evolução segura do banco offline SQLite (`card_control_offline.db`), migração v2->v3->v4, campo explícito `bank`, índices e schemas KSP. |
-| **`agent-state-sync`** | [.agents/skills/agent-state-sync/SKILL.md](file:///c:/Users/Kauan/Desktop/CardControl/.agents/skills/agent-state-sync/SKILL.md) | Sincronização e auditoria dos artefatos de governança (`.agents/CARDCONTROL_STATE.md`, `.agents/CARDCONTROL_TASKS.yaml`, `.agents/CARDCONTROL_EXECPLAN.md`). |
-| **`financial-math-audit`** | [.agents/skills/financial-math-audit/SKILL.md](file:///c:/Users/Kauan/Desktop/CardControl/.agents/skills/financial-math-audit/SKILL.md) | Regras matemáticas com representação canônica em centavos (`Long`), rateio exato de parcelas e virada de ano no fechamento. |
+| **`cardcontrol-verify`** | [.agents/skills/cardcontrol-verify/SKILL.md](.agents/skills/cardcontrol-verify/SKILL.md) | Execução automatizada dos gates de teste (`testDebugUnitTest`) e build (`assembleDebug`), detecção inteligente de JDK e relatórios. |
+| **`bank-notification-parser`** | [.agents/skills/bank-notification-parser/SKILL.md](.agents/skills/bank-notification-parser/SKILL.md) | Guia e pipeline de extração de notificações bancárias, deduplicação SHA-256 (120s), sanitização e testes no Harness. |
+| **`room-db-migration`** | [.agents/skills/room-db-migration/SKILL.md](.agents/skills/room-db-migration/SKILL.md) | Evolução segura do banco offline SQLite (`card_control_offline.db`), migração incremental Room v5, campo explícito `bank`, índices e schemas KSP. |
+| **`agent-state-sync`** | [.agents/skills/agent-state-sync/SKILL.md](.agents/skills/agent-state-sync/SKILL.md) | Sincronização e auditoria dos artefatos de governança (`.agents/CARDCONTROL_STATE.md`, `.agents/CARDCONTROL_TASKS.yaml`, `.agents/CARDCONTROL_EXECPLAN.md`). |
+| **`financial-math-audit`** | [.agents/skills/financial-math-audit/SKILL.md](.agents/skills/financial-math-audit/SKILL.md) | Regras matemáticas com representação canônica em centavos (`Long`), rateio exato de parcelas e virada de ano no fechamento. |
 | **`regression-review`** | [.agents/skills/regression-review/SKILL.md](.agents/skills/regression-review/SKILL.md) | Revisão adversarial obrigatória da lógica de negócio, UI/domínio/persistência, duplicidade, migrações SQLite reais e cobertura CI/CD. |
 
 ---

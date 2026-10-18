@@ -64,7 +64,7 @@ Em vez de exigir credenciais de open banking, o aplicativo escuta em segundo pla
 | **Rateio e WhatsApp** | Geração de faturas formatadas em PDF nativo e mensagem estruturada para envio direto no WhatsApp |
 | **Abatimentos e Baixas** | Registro de pagamentos parciais ou Pix para restauração imediata do limite disponível |
 | **Alertas por E-mail** | Envio opcional direto por SMTP TLS com saldo restante pós-compra do titular |
-| **Interface Liquid Glass** | Design System em Jetpack Compose com tema Obsidian, ambient glow e teclados especializados |
+| **Interface Vitrine & Leve Editorial** | Design System em Jetpack Compose com Glassmorphism, Floating Dock, Carteira 3D por banco, Análises financeiras com gráficos offline e teclados dedicados |
 
 ### Captura em segundo plano
 
@@ -99,7 +99,7 @@ Push Bancário (Android OS)
 
 | Camada | Escolha Técnica | Papel no Sistema |
 | --- | --- | --- |
-| Interface | Jetpack Compose + Material 3 | Telas responsivas, tema Liquid Glass e formulários inteligentes |
+| Interface | Jetpack Compose + Material 3 | Telas responsivas, design system Vitrine/Leve Editorial com Glassmorphism e Floating Dock |
 | Persistência | Room 2.6.1 (SQLite privado) | Armazenamento local estruturado com chaves estrangeiras e integridade referencial |
 | Processamento | Coroutines + StateFlow | Fluxos reativos e assíncronos desacoplados da thread principal de UI |
 | Automação | NotificationListenerService | Recepção de eventos de push bancário diretamente do sistema operacional |
@@ -172,10 +172,10 @@ O repositório possui uma suíte determinística em [SecurityAndDomainTestHarnes
 
 | Caminho | Responsabilidade |
 | --- | --- |
-| `app/src/main/java/.../data/` | Entidades Room v4, AppDao, AppDatabase e CardRepository com Mutex atômico |
+| `app/src/main/java/.../data/` | Entidades Room v5, AppDao, AppDatabase e CardRepository com Mutex atômico |
 | `app/src/main/java/.../service/` | BankNotificationListener e BankNotificationParser com deduplicação SHA-256 |
 | `app/src/main/java/.../security/` | Sanitização contra CRLF, Path Traversal e limites de payload |
-| `app/src/main/java/.../ui/` | ViewModel, telas Compose e componentes do design system Liquid Glass |
+| `app/src/main/java/.../ui/` | ViewModel, telas Compose (Início, Cartões 3D, Análises) e componentes Vitrine / Leve |
 | `app/src/test/` | Suíte de testes unitários do harness de domínio e segurança |
 | `app/schemas/` | Esquemas do banco Room SQLite exportados via KSP com histórico de migração |
 | `docs/architecture/` | Documentação arquitetural e contratos técnicos |
@@ -200,7 +200,9 @@ O repositório possui uma suíte determinística em [SecurityAndDomainTestHarnes
 
 ## Distribuição e instalação
 
-Os lançamentos oficiais do **CardControl (v2.2.0+)** são disponibilizados na aba de [Releases do GitHub](https://github.com/kauankelvin7/CardControl/releases). Cada publicação é acompanhada por seu arquivo de verificação de integridade `SHA256SUMS.txt`.
+Os lançamentos oficiais do **CardControl (v2.4.0+)** são disponibilizados na aba de [Releases do GitHub](https://github.com/kauankelvin7/CardControl/releases). Cada publicação é acompanhada por seu arquivo de verificação de integridade `SHA256SUMS.txt`.
+
+A versão **v2.4.0** consolida o novo Design System Vitrine & Leve Editorial, Floating Dock, Carteira 3D por banco, Análises financeiras offline, expansão do motor de notificações e banco Room v5 com proteção estrita contra deleção em cascata.
 
 A versão v2.1.0 legada permanece descontinuada em razão da chave histórica. Antes de distribuir uma nova versão, valide os certificados dos APKs já instalados: trocar a chave pode impedir atualizações diretas e exige uma estratégia explícita de transição.
 

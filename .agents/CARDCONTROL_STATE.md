@@ -1,16 +1,13 @@
 # CardControl — Ponto de Retomada e Estado Canônico
 
-- Data da Última Auditoria/Atualização: 17 de Outubro de 2026, 21:40 -03
+- Data da Última Auditoria/Atualização: 18 de Outubro de 2026, 01:50 -03
 - Branch ativa: `main`
-- HEAD SHA: `82ba3d2` (sem commit das alterações locais)
-- Versão Atual: `v2.3.0` (versionCode 5) — Vitrine & Leve Editorial Edition
+- HEAD SHA: `cc7a0fb` (base das alterações locais para v2.4.0)
+- Versão Atual: `v2.4.0` (versionCode 6) — Vitrine & Leve Editorial Edition
 - Versão do banco Room: `v5` (`MIGRATION_4_5`) com atomicidade @Transaction e proteção estrita contra deleção em cascata
-- Novo APK Debug Gerado e Auditado (TASK-024): `app/build/outputs/apk/debug/app-debug.apk`
-  - APK SHA-256: `7C9F7FBF146080B7827CB1FC7599C494D8EAC3985B29D92C71B107669196BD7A`
-  - Gates Comprovados: 155/155 unit tests PASS (0 falhas, 0 erros), lintDebug PASS (0 erros), git diff --check PASS
-  - Melhorias TASK-024: Glassmorphism em Faturas Hero Card, botões e NavigationBar; Dynamic Theming reativo por cartão com aura difusa (radial gradient glow) e harmonização de botão e bento de limites; Descongestionamento da TopBar; Gráficos refinados CcBarChart/CcDonutChart e eliminação de truncamento.
-  - Status de Entrega: SEM PUSH REALIZADO. Aguardando aprovação explícita do usuário.
-
+- Estado do Repositório: Limpo e saneado (sem logs residuais, pastas redundantes de tooling removidas, APKs soltos excluídos)
+- Gates Comprovados: 172/172 unit tests PASS (0 falhas, 0 erros), lintDebug PASS (0 erros), assembleDebug PASS, git diff --check PASS
+- Status de Entrega: Pronto para push na `main` e publicação da release oficial `v2.4.0`.
 ---
 
 ## 1. Resumo Executivo das Entregas Validadas
