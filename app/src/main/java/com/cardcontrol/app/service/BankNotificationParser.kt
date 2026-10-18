@@ -127,11 +127,22 @@ object BankNotificationParser {
     private val PROMOTIONAL_AMOUNT_REGEX = Regex(
         """\b(?:cashback|oferta\w*|promoc\w*|desconto\w*)\b.{0,30}?(?:r\$|brl|%)|[0-9]\s*%"""
     )
+    private val PROMOTIONAL_WORD_REGEX = Regex("""\b(?:cashback|oferta\w*|promoc\w*|desconto\w*)\b""")
 
     private const val AMOUNT_NUMBER =
         """([0-9]{1,3}(?:\.[0-9]{3})+,[0-9]{2}|[0-9]+,[0-9]{2}|[0-9]{1,3}(?:,[0-9]{3})+\.[0-9]{2}|[0-9]+\.[0-9]{2})(?![0-9])"""
 
     private val AMOUNT_REGEX = Regex("""(?:R\$|BRL)\s*$AMOUNT_NUMBER""", RegexOption.IGNORE_CASE)
+
+    // Bare amounts are accepted only for the Inter notification's explicit purchase sentence.
+    private val INTER_BARE_PURCHASE_REGEX = Regex(
+        """\bvoc[eê]\s+acaba\s+de\s+comprar\s+$AMOUNT_NUMBER\s+em\s+([\p{L}\p{N}*&'@#_./\- ]{2,40}?)(?=\s*(?:[àa]s\s+[0-9]|[.,;!?]|\s*\.\s+a\s+compra|\s+a\s+compra\s+foi\b|$))""",
+        RegexOption.IGNORE_CASE
+    )
+    private val INTER_NATIONAL_CREDIT_REGEX = Regex("""\bcredito\s+(?:nacional|internacional)\b""")
+    private val BARE_DECIMAL_AMOUNT_REGEX = Regex(
+        """(?<![\p{L}\p{N}.,])((?:[0-9]{1,3}(?:\.[0-9]{3})+|[0-9]+)(?:,[0-9]{2}|\.[0-9]{2}))(?![\p{L}\p{N}.,])"""
+    )
 
     /** Trechos que mencionam valores que NÃO são o total da compra (valor da parcela, limite, saldo). */
     private val NON_PURCHASE_AMOUNT_REGEX = Regex(
@@ -142,7 +153,7 @@ object BankNotificationParser {
     private val INSTALLMENTS_REGEX = Regex("""\b([0-9]{1,3})\s*(?:x|vezes|parcelas)(?![\p{L}0-9])""", RegexOption.IGNORE_CASE)
 
     private val CARD_DIGITS_REGEX = Regex(
-        """(?:\bfinal|\bterminad[oa]\s+em|\*{2,})\s*:?\s*([0-9]{4})(?![0-9])""",
+        """(?:\bfinal|\bterminad[oa]\s+em|\*{2,})\s*[:#\-\[\(]?\s*([0-9]{4})(?![0-9])""",
         RegexOption.IGNORE_CASE
     )
 
@@ -208,19 +219,25 @@ object BankNotificationParser {
         if (IGNORED_CONTEXT_REGEX.containsMatchIn(normalized)) return null
         if (PROMOTIONAL_AMOUNT_REGEX.containsMatchIn(normalized)) return null
 
+        val interPurchase = if (packageName == "br.com.intermedium") {
+            extractInterBarePurchase(content, normalized)
+        } else null
+        if (packageName == "br.com.intermedium" &&
+            INTER_BARE_PURCHASE_REGEX.containsMatchIn(content) && interPurchase == null) return null
+
         val category = when {
             PIX_SENT_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.PIX_SENT
             PIX_RECEIVED_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.PIX_RECEIVED
             TRANSFER_SENT_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.TRANSFER_SENT
             BILL_PAID_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.BILL_PAID
-            CARD_PURCHASE_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.CARD_EXPENSE
+            interPurchase != null || CARD_PURCHASE_TRIGGER_REGEX.containsMatchIn(normalized) -> NotificationCategory.CARD_EXPENSE
             else -> return null
         }
 
-        val amountCents = extractPurchaseAmountCents(content) ?: return null
+        val amountCents = interPurchase?.amountCents ?: extractPurchaseAmountCents(content) ?: return null
         val installments = extractInstallments(content) ?: return null
         val lastFour = extractLastFour(content) ?: return null
-        val merchant = extractCounterpart(content, category) ?: return null
+        val merchant = interPurchase?.merchant ?: extractCounterpart(content, category) ?: return null
 
         val hashInput = "$packageName|${category.name}|${lastFour.value ?: "----"}|$amountCents|$installments|${merchant.lowercase(PT_BR)}"
 
@@ -297,6 +314,39 @@ object BankNotificationParser {
         // Nenhum ou mais de um valor distinto: ambíguo, não lançar.
         val cents = candidates.singleOrNull() ?: return null
         return cents.takeIf { it in 1..MAX_AMOUNT_CENTS }
+    }
+
+    private data class InterBarePurchase(val amountCents: Long, val merchant: String)
+
+    private fun extractInterBarePurchase(content: String, normalized: String): InterBarePurchase? {
+        if (!INTER_NATIONAL_CREDIT_REGEX.containsMatchIn(normalized)) return null
+        val match = INTER_BARE_PURCHASE_REGEX.findAll(content).singleOrNull() ?: return null
+        val merchantRange = match.groups[2]?.range ?: return null
+        val outsideMerchant = content.removeRange(merchantRange)
+        if (PROMOTIONAL_WORD_REGEX.containsMatchIn(normalize(outsideMerchant))) return null
+        val amount = parseAmountToCents(match.groupValues[1])
+            ?.takeIf { it in 1..MAX_AMOUNT_CENTS } ?: return null
+        if (extractLastFour(content)?.value == null) return null
+
+        val sanitizedContentForAmounts = content
+            .replace(Regex("""\b(?:[àa]s\s+)?[0-9]{1,2}[h:.][0-9]{2}(?:\s*h(?:oras?)?)?\b""", RegexOption.IGNORE_CASE), " ")
+            .replace(Regex("""\b[0-9]{1,2}[/.][0-9]{1,2}(?:[/.-][0-9]{2,4})?\b"""), " ")
+
+        val mentionedAmounts = BARE_DECIMAL_AMOUNT_REGEX.findAll(sanitizedContentForAmounts)
+            .mapNotNull { parseAmountToCents(it.groupValues[1]) }
+            .toSet()
+        if (mentionedAmounts.any { it != amount }) return null
+        val currencyAmounts = AMOUNT_REGEX.findAll(NON_PURCHASE_AMOUNT_REGEX.replace(content, " "))
+            .mapNotNull { parseAmountToCents(it.groupValues[1]) }
+            .toSet()
+        if (currencyAmounts.any { it != amount }) return null
+
+        val merchant = SecuritySanitizer.sanitizeHeaderField(
+            match.groupValues[2].trim().trimEnd('.', '-', '/', '!', '?', ';', ':'), maxLength = 40
+        )
+        if (merchant.length < 2 || merchant.none { it.isLetter() } ||
+            MERCHANT_FORBIDDEN_WORDS.containsMatchIn(normalize(merchant))) return null
+        return InterBarePurchase(amount, merchant)
     }
 
     private fun extractInstallments(content: String): Int? {

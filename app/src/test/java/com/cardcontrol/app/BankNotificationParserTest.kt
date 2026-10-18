@@ -664,4 +664,109 @@ class BankNotificationParserTest {
         assertEquals(18_000L, r.amountCents)
         assertEquals("ENEL DISTRIBUICAO", r.merchant)
     }
+
+    // ---------- Regressão Inter: Compra no crédito sem símbolo monetário ----------
+
+    @Test
+    fun `inter - compra no credito sem simbolo monetario extrai valor estabelecimento e final`() {
+        val r = parseOk(
+            "br.com.intermedium",
+            "Compra no credito.",
+            "Ola, TITULAR TESTE. Voce acaba de comprar 112,86 em MERCADO TESTE. A compra foi no credito nacional, com cartao final 1234."
+        )
+        assertEquals("Inter", r.bankName)
+        assertEquals(NotificationCategory.CARD_EXPENSE, r.category)
+        assertEquals(11_286L, r.amountCents)
+        assertEquals("MERCADO TESTE", r.merchant)
+        assertNotEquals("TITULAR TESTE", r.merchant)
+        assertEquals("1234", r.lastFourDigits)
+        assertEquals(1, r.installments)
+    }
+
+    @Test
+    fun `inter - compra contextual com pontuacao mantem deduplicacao estavel`() {
+        val text = "Você acaba de comprar 112,86 em MERCADO TESTE, a compra foi no crédito nacional, com cartão final 1234."
+        val first = parseOk("br.com.intermedium", "Compra no crédito", text)
+        val repeated = parseOk("br.com.intermedium", "Compra no crédito", text)
+        assertEquals("MERCADO TESTE", first.merchant)
+        assertEquals(first.dedupHash, repeated.dedupHash)
+    }
+
+    @Test
+    fun `inter - compra contextual rejeita sinais ausentes ou ambiguos`() {
+        val validShape = "Você acaba de comprar 112,86 em MERCADO TESTE. A compra foi no crédito nacional, com cartão final 1234."
+        val invalidNotifications = listOf(
+            "br.com.intermedium" to "Você acaba de comprar 112,86 em MERCADO TESTE. Compra no débito, cartão final 1234.",
+            "br.com.intermedium" to "Você acaba de comprar 112,86 em MERCADO TESTE. Crédito nacional.",
+            "br.com.intermedium" to "Você acaba de comprar 112,86 em MERCADO TESTE. Crédito nacional, cartão final 1234 e final 5678.",
+            "br.com.intermedium" to "Você acaba de comprar 112,86 em. Crédito nacional, cartão final 1234.",
+            "br.com.intermedium" to "Você acaba de comprar 112,86 em MERCADO TESTE. Crédito nacional; outro valor 5,00; cartão final 1234.",
+            "br.com.intermedium" to "Você acaba de comprar 112,86 em MERCADO TESTE. R$ 5,00, crédito nacional, cartão final 1234.",
+            "br.com.intermedium" to "Você acaba de comprar 112,86 em MERCADO TESTE. Compra estornada no crédito nacional, cartão final 1234.",
+            "br.com.intermedium" to "Fatura: você acaba de comprar 112,86 em MERCADO TESTE. Crédito nacional, cartão final 1234.",
+            "br.com.intermedium" to "Promoção: você acaba de comprar 112,86 em MERCADO TESTE. Crédito nacional, cartão final 1234.",
+            "com.nu.production" to validShape,
+            "br.com.pacote.nao.suportado" to validShape
+        )
+
+        invalidNotifications.forEach { (pkg, text) ->
+            val title = if (text.contains("R$ 5,00")) "Compra aprovada" else "Compra no crédito"
+            assertNull("Deveria rejeitar $pkg: $text", BankNotificationParser.parse(pkg, title, text))
+        }
+    }
+
+    @Test
+    fun `inter - compra no credito com colchetes ou pontuacao no final do cartao`() {
+        val r = parseOk(
+            "br.com.intermedium",
+            "Compra no crédito",
+            "Olá, TITULAR TESTE. Você acaba de comprar 112,86 em MERCADO TESTE. A compra foi no crédito nacional, com cartão final [1234]."
+        )
+        assertEquals("Inter", r.bankName)
+        assertEquals(11_286L, r.amountCents)
+        assertEquals("MERCADO TESTE", r.merchant)
+        assertEquals("1234", r.lastFourDigits)
+        assertEquals(1, r.installments)
+    }
+
+    @Test
+    fun `inter - compra no credito sanitiza pontuacao e caracteres especiais no estabelecimento`() {
+        val cases = listOf(
+            "Você acaba de comprar 50,00 em PADARIA 24H.. A compra foi no crédito nacional, com cartão final 1234." to "PADARIA 24H",
+            "Você acaba de comprar 80,50 em FARMÁCIA & DROGARIA! A compra foi no crédito nacional, com cartão final 1234." to "FARMÁCIA & DROGARIA",
+            "Você acaba de comprar 199,99 em POSTO BR-101; a compra foi no crédito nacional, com cartão final 1234." to "POSTO BR-101",
+            "Você acaba de comprar 320,00 em @LOJA_OFICIAL. A compra foi no crédito nacional, com cartão final 1234." to "@LOJA_OFICIAL"
+        )
+        for ((text, expectedMerchant) in cases) {
+            val r = parseOk("br.com.intermedium", "Compra no crédito", text)
+            assertEquals(expectedMerchant, r.merchant)
+            assertEquals("1234", r.lastFourDigits)
+            assertEquals(1, r.installments)
+        }
+    }
+
+    @Test
+    fun `inter - compra no credito internacional e aceita`() {
+        val r = parseOk(
+            "br.com.intermedium",
+            "Compra no crédito",
+            "Olá, TITULAR TESTE. Você acaba de comprar 45,00 em DIGITAL OCEAN NY. A compra foi no crédito internacional, com cartão final 1234."
+        )
+        assertEquals("Inter", r.bankName)
+        assertEquals(4_500L, r.amountCents)
+        assertEquals("DIGITAL OCEAN NY", r.merchant)
+        assertEquals("1234", r.lastFourDigits)
+    }
+
+    @Test
+    fun `inter - compra com data e horario nao e rejeitada por valor conflitante`() {
+        val r = parseOk(
+            "br.com.intermedium",
+            "Compra no crédito",
+            "Olá, TITULAR TESTE. Você acaba de comprar 112,86 em MERCADO TESTE às 14:30 em 18/10. A compra foi no crédito nacional, com cartão final 1234."
+        )
+        assertEquals(11_286L, r.amountCents)
+        assertEquals("MERCADO TESTE", r.merchant)
+        assertEquals("1234", r.lastFourDigits)
+    }
 }

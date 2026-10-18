@@ -254,6 +254,128 @@ class BankNotificationProcessorTest {
         assertEquals(2, dao.transactions.size)
     }
 
+    // ---------- Regressão Inter: Fluxo Completo Processor -> Parser -> CardRepository -> AppDao ----------
+
+    private val cardInter = CreditCardEntity(
+        id = 30,
+        name = "Inter Black",
+        bank = SupportedBank.INTER.id,
+        lastFourDigits = "1234",
+        totalLimit = 1_000_000L,
+        closingDay = 9,
+        dueDay = 15,
+        defaultHolderId = 1
+    )
+
+    private val interNotificationText =
+        "Olá, TITULAR TESTE. Você acaba de comprar 112,86 em MERCADO TESTE. A compra foi no crédito nacional, com cartão final 1234."
+
+    @Test
+    fun `inter - compra no credito sem simbolo monetario processa e registra despesa de ponta a ponta`() = runBlocking {
+        val dao = daoWith(cardInter)
+        val processor = BankNotificationProcessor(dao)
+
+        val result = processor.process(
+            packageName = "br.com.intermedium",
+            title = "Compra no crédito",
+            text = interNotificationText,
+            postTime = postTime
+        )
+
+        assertTrue("Esperava registro com sucesso, obteve: $result", result is AutoCaptureResult.Registered)
+        val reg = result as AutoCaptureResult.Registered
+
+        assertEquals(11_286L, reg.expense.amount)
+        assertEquals("MERCADO TESTE", reg.expense.merchant)
+        assertEquals("1234", reg.expense.lastFourDigits)
+        assertEquals(1, reg.expense.installments)
+        assertEquals(30L, reg.card.id)
+        assertEquals(1L, reg.holder.id)
+
+        // Verifica inserção atômica e correta no banco de dados (AppDao)
+        val tx = dao.transactions.single()
+        assertEquals(11_286L, tx.totalAmount)
+        assertEquals("MERCADO TESTE", tx.merchant)
+        assertEquals(30L, tx.cardId)
+        assertEquals(1L, tx.holderId)
+        assertEquals(1, tx.installmentsCount)
+        assertTrue(tx.isAutoCaptured)
+
+        val inst = dao.installments.single()
+        assertEquals(tx.id, inst.transactionId)
+        assertEquals(11_286L, inst.amount)
+        assertEquals(1, inst.installmentNumber)
+        assertEquals(1, inst.totalInstallments)
+        assertEquals("MERCADO TESTE", inst.merchantSnapshot)
+    }
+
+    @Test
+    fun `inter - compra com final 1234 nao associa a cartao de outro emissor com mesmo final`() = runBlocking {
+        val nuWithSameFinal = cardAna.copy(id = 15, lastFourDigits = "1234")
+        val dao = daoWith(nuWithSameFinal) // Apenas cartão Nubank cadastrado com final 1234, nenhum Inter
+        val processor = BankNotificationProcessor(dao)
+
+        val result = processor.process(
+            packageName = "br.com.intermedium",
+            title = "Compra no crédito",
+            text = interNotificationText,
+            postTime = postTime
+        )
+
+        assertEquals(AutoCaptureResult.Ignored(IgnoreReason.AMBIGUOUS_CARD), result)
+        assertTrue(dao.transactions.isEmpty())
+        assertTrue(dao.installments.isEmpty())
+    }
+
+    @Test
+    fun `inter - dois cartoes inter com mesmo final 1234 falham com seguranca por ambiguidade`() = runBlocking {
+        val interCard1 = cardInter.copy(id = 31, name = "Inter Gold")
+        val interCard2 = cardInter.copy(id = 32, name = "Inter Black")
+        val dao = daoWith(interCard1, interCard2)
+        val processor = BankNotificationProcessor(dao)
+
+        val result = processor.process(
+            packageName = "br.com.intermedium",
+            title = "Compra no crédito",
+            text = interNotificationText,
+            postTime = postTime
+        )
+
+        assertEquals(AutoCaptureResult.Ignored(IgnoreReason.AMBIGUOUS_CARD), result)
+        assertTrue(dao.transactions.isEmpty())
+        assertTrue(dao.installments.isEmpty())
+    }
+
+    @Test
+    fun `inter - cartao inter sem titular padrao e ignorado com seguranca`() = runBlocking {
+        val interSemTitular = cardInter.copy(id = 33, defaultHolderId = null)
+        val dao = daoWith(interSemTitular)
+        val processor = BankNotificationProcessor(dao)
+
+        val result = processor.process(
+            packageName = "br.com.intermedium",
+            title = "Compra no crédito",
+            text = interNotificationText,
+            postTime = postTime
+        )
+
+        assertEquals(AutoCaptureResult.Ignored(IgnoreReason.NO_HOLDER), result)
+        assertTrue(dao.transactions.isEmpty())
+    }
+
+    @Test
+    fun `inter - deduplicacao de 120s impede compra duplicada`() = runBlocking {
+        val dao = daoWith(cardInter)
+        val processor = BankNotificationProcessor(dao)
+
+        val first = processor.process("br.com.intermedium", "Compra no crédito", interNotificationText, postTime)
+        val duplicate = processor.process("br.com.intermedium", "Compra no crédito", interNotificationText, postTime + 30_000L)
+
+        assertTrue(first is AutoCaptureResult.Registered)
+        assertEquals(AutoCaptureResult.Ignored(IgnoreReason.DUPLICATE), duplicate)
+        assertEquals(1, dao.transactions.size)
+    }
+
     /** DAO em memória com a mesma semântica das queries usadas no fluxo de captura. */
     private class InMemoryDao : AppDao {
         val holders = mutableListOf<HolderEntity>()
@@ -265,6 +387,48 @@ class BankNotificationProcessorTest {
         override suspend fun insertHolder(holder: HolderEntity): Long { holders += holder; return holder.id }
         override fun observeHolders(): Flow<List<HolderEntity>> = flowOf(holders.toList())
         override suspend fun getHolderById(id: Long): HolderEntity? = holders.firstOrNull { it.id == id }
+        override suspend fun getAllHoldersSnapshot(): List<HolderEntity> = holders.toList()
+        override suspend fun updateHolder(holder: HolderEntity): Int {
+            val idx = holders.indexOfFirst { it.id == holder.id }
+            return if (idx >= 0) { holders[idx] = holder; 1 } else 0
+        }
+        override suspend fun reassignCardsDefaultHolder(oldHolderId: Long, newHolderId: Long?) {
+            for (i in cards.indices) {
+                if (cards[i].defaultHolderId == oldHolderId) {
+                    cards[i] = cards[i].copy(defaultHolderId = newHolderId)
+                }
+            }
+        }
+        override suspend fun reassignTransactionsHolder(oldHolderId: Long, newHolderId: Long) {
+            for (i in transactions.indices) {
+                if (transactions[i].holderId == oldHolderId) transactions[i] = transactions[i].copy(holderId = newHolderId)
+            }
+        }
+        override suspend fun reassignInstallmentsHolder(oldHolderId: Long, newHolderId: Long) {
+            for (i in installments.indices) {
+                if (installments[i].holderId == oldHolderId) installments[i] = installments[i].copy(holderId = newHolderId)
+            }
+        }
+        override suspend fun reassignPaymentsHolder(oldHolderId: Long, newHolderId: Long) {
+            for (i in payments.indices) {
+                if (payments[i].holderId == oldHolderId) payments[i] = payments[i].copy(holderId = newHolderId)
+            }
+        }
+        override suspend fun reassignRecurringChargesHolder(oldHolderId: Long, newHolderId: Long) {
+            for (i in recurringCharges.indices) {
+                if (recurringCharges[i].holderId == oldHolderId) recurringCharges[i] = recurringCharges[i].copy(holderId = newHolderId)
+            }
+        }
+        override suspend fun deleteHolderIfUnused(id: Long): Int {
+            val hasTransactions = transactions.any { it.holderId == id }
+            val hasInstallments = installments.any { it.holderId == id }
+            val hasPayments = payments.any { it.holderId == id }
+            val hasRecurring = recurringCharges.any { it.holderId == id }
+            if (hasTransactions || hasInstallments || hasPayments || hasRecurring) return 0
+            return if (holders.removeIf { it.id == id }) 1 else 0
+        }
+        @Deprecated("No-op", ReplaceWith("safeDeleteHolderIfUnused(id)"))
+        override suspend fun deleteHolderById(id: Long): Int = 0
         override suspend fun insertCard(card: CreditCardEntity): Long { cards += card; return card.id }
         override fun observeCards(): Flow<List<CreditCardEntity>> = flowOf(cards.toList())
         override suspend fun getAllCardsSnapshot(): List<CreditCardEntity> = cards.toList()
@@ -277,6 +441,11 @@ class BankNotificationProcessorTest {
             } else 0
         }
         override suspend fun deleteCardIfUnused(id: Long): Int {
+            val hasTransactions = transactions.any { it.cardId == id }
+            val hasInstallments = installments.any { it.cardId == id }
+            val hasPayments = payments.any { it.cardId == id }
+            val hasRecurring = recurringCharges.any { it.cardId == id }
+            if (hasTransactions || hasInstallments || hasPayments || hasRecurring) return 0
             val removed = cards.removeIf { it.id == id }
             return if (removed) 1 else 0
         }
@@ -286,6 +455,14 @@ class BankNotificationProcessorTest {
             return id
         }
         override suspend fun insertInstallments(installments: List<InstallmentEntity>) { this.installments += installments }
+        override suspend fun deleteInstallmentsByTransaction(transactionId: Long) {
+            installments.removeAll { it.transactionId == transactionId }
+        }
+        override suspend fun deleteTransactionById(transactionId: Long): Int {
+            val deleted = transactions.removeAll { it.id == transactionId }
+            if (deleted) installments.removeAll { it.transactionId == transactionId }
+            return if (deleted) 1 else 0
+        }
         override suspend fun countRecentDuplicate(hash: String, minTimestamp: Long): Int {
             val count = transactions.count { it.dedupHash == hash && it.purchaseTimestamp >= minTimestamp }
             // Amplia a janela entre verificação e gravação: sem o lock do processador, ambas as instâncias gravariam.
@@ -353,6 +530,7 @@ class BankNotificationProcessorTest {
 
         override suspend fun getAllTransactionsSnapshot(): List<TransactionEntity> =
             transactions.toList().sortedBy { it.purchaseTimestamp }
+        override fun observeAllTransactions(): Flow<List<TransactionEntity>> = flowOf(transactions.toList())
 
         override suspend fun getTotalActiveRecurringAmount(): Long =
             recurringCharges.filter { it.isActive }.sumOf { it.expectedAmount }
