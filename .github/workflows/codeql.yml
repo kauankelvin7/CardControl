@@ -59,7 +59,7 @@ jobs:
         run: ./gradlew compileDebugKotlin testDebugUnitTest --no-daemon --console=plain --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process
 
       - name: Run CodeQL analysis
-        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d
+        uses: github/codeql-action/analyze@6f2ac81f5cd81fe351a197ba0b00d91d03cd2aee
         with:
           category: "/language:java-kotlin"
           # Fork PRs have a read-only GITHUB_TOKEN. Still analyze the code,
