@@ -1791,13 +1791,13 @@ fun SettingsScreenContent(
                         Spacer(Modifier.width(10.dp))
                         Column {
                             Text(
-                                "Captura automática",
+                                "Notificações (experimental)",
                                 style = MaterialTheme.typography.titleMedium.copy(fontSize = 15.sp),
                                 fontWeight = FontWeight.Bold,
                                 color = MaterialTheme.colorScheme.onSurface
                             )
                             Text(
-                                "Lê alertas de compra dos seus bancos",
+                                "Opcional: alguns bancos e aparelhos não enviam alertas legíveis.",
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
@@ -1812,7 +1812,7 @@ fun SettingsScreenContent(
                         }
                     ) {
                         Text(
-                            text = if (notificationListenerEnabled) "Ativa" else "Pendente",
+                            text = if (notificationListenerEnabled) "Permitida" else "Desligada",
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
                             style = MaterialTheme.typography.labelSmall,
                             fontWeight = FontWeight.Bold,
@@ -1835,12 +1835,17 @@ fun SettingsScreenContent(
                     Icon(Icons.Default.Tune, contentDescription = null, modifier = Modifier.size(18.dp))
                     Spacer(Modifier.width(8.dp))
                     Text(
-                        "Permissão de notificações",
+                        "Configurar notificações (opcional)",
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
                     )
                 }
+                Text(
+                    "Para registrar despesas sem essa permissão, toque em Lançar compra e cole um comprovante ou compartilhe um texto diretamente com o CardControl.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
             }
         }
 
