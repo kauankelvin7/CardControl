@@ -9,6 +9,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
@@ -22,16 +23,12 @@ import com.cardcontrol.app.ui.designsystem.resolveDark
 import com.cardcontrol.app.ui.theme.CardControlTheme
 
 class MainActivity : ComponentActivity() {
+    private var sharedReceiptText by mutableStateOf<String?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
-        if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O_MR1) {
-            setShowWhenLocked(true)
-            setTurnScreenOn(true)
-            (getSystemService(android.app.KeyguardManager::class.java))?.requestDismissKeyguard(this, null)
-        }
-        window.addFlags(android.view.WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
-        // Inicializa a janela no modo edge-to-edge sem qualquer faixa preta
-        enableEdgeToEdge()
         super.onCreate(savedInstanceState)
+        readSharedReceipt(intent)
+        enableEdgeToEdge()
         val uiPrefs = getSharedPreferences("card_control_ui_prefs", MODE_PRIVATE)
         val initialThemeMode = themeModeFromPreference(uiPrefs.getString("theme_mode", null))
         setContent {
@@ -67,10 +64,24 @@ class MainActivity : ComponentActivity() {
                     },
                     onOpenNotificationSettings = {
                         startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS))
-                    }
+                    },
+                    sharedReceiptText = sharedReceiptText,
+                    onSharedReceiptConsumed = { sharedReceiptText = null }
                 )
             }
         }
+    }
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        readSharedReceipt(intent)
+    }
+
+    private fun readSharedReceipt(incoming: Intent?) {
+        if (incoming?.action != Intent.ACTION_SEND) return
+        if (incoming.type?.startsWith("text/") != true) return
+        sharedReceiptText = incoming.getCharSequenceExtra(Intent.EXTRA_TEXT)
+            ?.toString()?.take(4_000)?.takeIf { it.isNotBlank() }
     }
 }
 
