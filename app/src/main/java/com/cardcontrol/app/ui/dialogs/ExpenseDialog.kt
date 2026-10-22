@@ -8,7 +8,9 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -41,6 +43,7 @@ import com.cardcontrol.app.data.repository.CardRepository
 import com.cardcontrol.app.ui.designsystem.CCTheme
 import com.cardcontrol.app.ui.designsystem.CcShapes
 import com.cardcontrol.app.util.MoneyUtils
+import com.cardcontrol.app.util.TransactionTextParser
 import com.cardcontrol.app.ui.components.GlassTextField
 import com.cardcontrol.app.ui.theme.LiquidPillSelector
 
@@ -57,16 +60,27 @@ fun ExpenseDialog(
     holders: List<HolderEntity>,
     onDismissRequest: () -> Unit,
     onConfirm: (cardId: Long, holderId: Long, merchant: String, amountCents: Long, parcels: Int) -> Unit,
-    initialCardId: Long? = null
+    initialCardId: Long? = null,
+    initialText: String = ""
 ) {
     if (cards.isEmpty() || holders.isEmpty()) return
 
-    var merchant by remember { mutableStateOf("") }
-    var amount by remember { mutableStateOf("") }
-    var parcels by remember { mutableStateOf("1") }
+    val suggestion = remember(initialText) { TransactionTextParser.parse(initialText) }
+    var rawText by remember(initialText) { mutableStateOf(initialText.take(4_000)) }
+    var interpretationMessage by remember(initialText) {
+        mutableStateOf(if (initialText.isBlank()) "" else if (suggestion != null) "Sugestão preenchida. Confira os dados." else "Não foi possível interpretar o texto. Você pode preencher manualmente.")
+    }
+    var merchant by remember(initialText) { mutableStateOf(suggestion?.merchant.orEmpty()) }
+    var amount by remember(initialText) { mutableStateOf(suggestion?.amountCents?.let { cents -> centsInput(cents) }.orEmpty()) }
+    var parcels by remember(initialText) { mutableStateOf(suggestion?.installments?.toString() ?: "1") }
     var formError by remember { mutableStateOf<String?>(null) }
-    var selectedCardId by remember(cards, initialCardId) {
-        mutableLongStateOf(cards.firstOrNull { it.id == initialCardId }?.id ?: cards.first().id)
+    var selectedCardId by remember(cards, initialCardId, initialText) {
+        val matchingLastFour = cards.filter { it.lastFourDigits == suggestion?.lastFourDigits }
+        mutableLongStateOf(
+            cards.firstOrNull { it.id == initialCardId }?.id
+                ?: matchingLastFour.singleOrNull()?.id
+                ?: cards.first().id
+        )
     }
     var selectedHolderId by remember(cards, holders, initialCardId) {
         mutableLongStateOf(
@@ -90,7 +104,41 @@ fun ExpenseDialog(
             }
         },
         text = {
-            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(
+                modifier = Modifier.verticalScroll(rememberScrollState()),
+                verticalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                Text("Cole o texto de uma compra ou compartilhe-o de outro app. A interpretação é local e nada é salvo sem sua confirmação.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                GlassTextField(
+                    value = rawText,
+                    onValueChange = { rawText = it.take(4_000); interpretationMessage = "" },
+                    label = "Texto do comprovante (opcional)",
+                    placeholder = "Compra de R$ 45,90 em Mercado...",
+                    singleLine = false,
+                    modifier = Modifier.heightIn(max = 128.dp)
+                )
+                TextButton(onClick = {
+                    val parsed = TransactionTextParser.parse(rawText)
+                    if (parsed == null) {
+                        interpretationMessage = "Não encontrei uma compra válida. Preencha abaixo manualmente."
+                    } else {
+                        merchant = parsed.merchant.ifBlank { merchant }
+                        amount = centsInput(parsed.amountCents)
+                        parcels = parsed.installments.toString()
+                        val matchingCards = cards.filter { it.lastFourDigits == parsed.lastFourDigits }
+                        matchingCards.singleOrNull()?.let { matched ->
+                            selectedCardId = matched.id
+                            selectedHolderId = matched.defaultHolderId
+                                ?.takeIf { id -> holders.any { it.id == id } }
+                                ?: holders.first().id
+                        }
+                        interpretationMessage = "Valor sugerido. Confira cartão, titular, parcelas e estabelecimento."
+                        formError = null
+                    }
+                }) { Text("Interpretar texto") }
+                if (interpretationMessage.isNotBlank()) {
+                    Text(interpretationMessage, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
                 Text("Cartão Utilizado:", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Box(modifier = Modifier.horizontalScroll(rememberScrollState())) {
                     LiquidPillSelector(
@@ -201,3 +249,7 @@ fun ExpenseDialog(
         }
     )
 }
+
+/** Constrói campo de moeda com centavos inteiros, sem usar ponto flutuante. */
+private fun centsInput(cents: Long): String =
+    (cents / 100).toString() + "," + (cents % 100).toString().padStart(2, '0')
