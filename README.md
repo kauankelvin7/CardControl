@@ -1,7 +1,7 @@
 <h1 align="center">CardControl</h1>
 
 <p align="center">
-  Controle financeiro e rateio de faturas com captura passiva de notificações bancárias em tempo real.<br>
+  Controle financeiro offline e rateio de faturas, com registro e conferência de despesas sem depender de notificações.<br>
   Totalmente offline, com divisão exata de centavos e cofre criptografado no dispositivo.
 </p>
 
@@ -47,8 +47,8 @@ Nenhum dado financeiro, fatura, cartão ou nome de titular sai do aparelho. Não
 **2. Fechamento contábil e centavos exatos.**
 Divisões de parcelas não sofrem com imprecisões de ponto flutuante. Toda fração monetária é operada em `BigDecimal` com truncamento na base e alocação do resto na primeira parcela, garantindo que a soma das parcelas seja rigorosamente igual ao valor cobrado pelo banco.
 
-**3. Captura passiva sem intervenção manual e sem coleta de senhas.**
-Em vez de exigir credenciais de open banking, o aplicativo escuta em segundo plano os eventos legítimos de push dos aplicativos bancários instalados no celular, higieniza os campos contra injeção e vincula a compra ao cartão e titular correspondentes com deduplicação criptográfica SHA-256.
+**3. Registro verificável com fontes controladas pelo usuário.**
+O app já permite cadastrar compras manualmente e, nesta mudança experimental, receber textos compartilhados ou colados para sugerir valores e estabelecimento antes da confirmação. A leitura de notificações é opcional: não se pode assumir que Android e aplicativos bancários sempre as entregarão. Importação estruturada de extratos CSV e leitura de PDF são próximas etapas, ainda não implementadas.
 
 ---
 
@@ -59,20 +59,22 @@ Em vez de exigir credenciais de open banking, o aplicativo escuta em segundo pla
 | **Faturas** | Consolidado mensal bruto, abatimentos acumulados e saldo líquido restante |
 | **Titulares e Sublimites** | Controle de pessoas e dependentes com tetos de gastos e barras de progresso visual |
 | **Cartões de Crédito** | Cadastro de cartões com dias de fechamento e vencimento, limite global e titular padrão |
-| **Captura em Tempo Real** | Leitor passivo de notificações para Nubank, Inter, Itaú, C6, Santander, Bradesco, Caixa, PicPay e Mercado Pago, com suporte a compras de cartão, aproximação (NFC), carteiras digitais (Apple Pay / Samsung Pay), Pix enviado/recebido, transferências (TED) e boletos |
+| **Registro de despesas** | Lançamento manual e sugestão de compra a partir de texto colado/compartilhado; notificações de bancos continuam experimentais e não são requisito |
 | **Deduplicação** | Hash SHA-256 de pacote, categoria, valor, loja/contraparte e final do cartão com janela temporal de 2 minutos para evitar eventos repetidos |
 | **Rateio e WhatsApp** | Geração de faturas formatadas em PDF nativo e mensagem estruturada para envio direto no WhatsApp |
 | **Abatimentos e Baixas** | Registro de pagamentos parciais ou Pix para restauração imediata do limite disponível |
 | **Alertas por E-mail** | Envio opcional direto por SMTP TLS com saldo restante pós-compra do titular |
 | **Interface Vitrine & Leve Editorial** | Design System em Jetpack Compose com Glassmorphism, Floating Dock, Carteira 3D por banco, Análises financeiras com gráficos offline e teclados dedicados |
 
-### Captura em segundo plano
+### Notificações (recurso experimental e opcional)
 
-O serviço `BankNotificationListener` estende `NotificationListenerService` nativo do Android. Ele não executa loops de consulta periódica nem drena bateria: o sistema operacional notifica o serviço somente quando um dos pacotes bancários autorizados publica um alerta transacional. A partir daí, o texto é sanitizado contra ReDoS, CRLF e injeções, a categoria do evento (`CARD_EXPENSE`, `PIX_SENT`, `PIX_RECEIVED`, `TRANSFER_SENT`, `BILL_PAID`) é classificada, as parcelas, valores e estabelecimentos ou contrapartes são extraídos via Regex de alto desempenho e o registro é processado com deduplicação criptográfica SHA-256.
+O serviço `BankNotificationListener` estende `NotificationListenerService` nativo do Android. Sua existência e sua permissão não garantem que o banco realmente entregue alertas legíveis; a automação pode falhar por configurações, canais, restrições do Android ou mudança no texto do banco. Quando um evento é entregue, o sistema tenta processá-lo. A partir daí, o texto é sanitizado contra ReDoS, CRLF e injeções, a categoria do evento (`CARD_EXPENSE`, `PIX_SENT`, `PIX_RECEIVED`, `TRANSFER_SENT`, `BILL_PAID`) é classificada, as parcelas, valores e estabelecimentos ou contrapartes são extraídos via Regex de alto desempenho e o registro é processado com deduplicação criptográfica SHA-256.
 
 ---
 
 ## Arquitetura
+
+A nova direção está documentada em [CAPTURA_SEM_NOTIFICACOES.md](docs/architecture/CAPTURA_SEM_NOTIFICACOES.md). O diagrama legado abaixo representa apenas o canal **opcional** de notificações; o registro manual e a revisão de textos independem dele.
 
 ```
 Push Bancário (Android OS)
@@ -116,8 +118,8 @@ Elimina qualquer risco de vazamento de faturas, custo de hospedagem ou dependên
 **Divisão com resto concentrado na primeira parcela.**
 Dividir R$ 100,00 em 3 parcelas não pode gerar 3x de R$ 33,33 (faltando 1 centavo) nem 3x de R$ 33,34 (cobrando 2 centavos a mais). O algoritmo trunca em R$ 33,33 e soma a sobra de R$ 0,01 na primeira parcela (1ª de R$ 33,34 e demais de R$ 33,33).
 
-**Captura por notificações do sistema em vez de Open Banking.**
-APIs bancárias corporativas exigem certificados caros, homologações burocráticas ou cobrança por requisição. A leitura de notificações locais tem custo R$ 0, não solicita credenciais bancárias do usuário e funciona instantaneamente.
+**Controle por registros confirmados, sem depender de notificações.**
+Não é necessário fornecer credenciais bancárias para registrar e conferir despesas; a prioridade passa a ser texto compartilhado/colado e, em etapas futuras, extratos CSV/PDF locais. A automação por notificações permanece apenas como conveniência opcional.
 
 **Deduplicação temporal por hash SHA-256.**
 Aplicativos bancários frequentemente reemitem a mesma notificação ao restabelecer sinal ou alternar redes. O hash combinando pacote, loja, valor, final do cartão e janela de 120 segundos descarta duplicidades sem bloquear compras legítimas consecutivas.
