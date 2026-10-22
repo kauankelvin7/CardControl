@@ -42,6 +42,12 @@ class TransactionTextParserTest {
     }
 
     @Test
+    fun pixEnviadoNaoPodeSerConfundidoComCompraDeCartao() {
+        assertNull(TransactionTextParser.parse("Pix enviado de R$ 150,00 para Maria"))
+        assertNull(TransactionTextParser.parse("Transferência realizada: R$ 150,00"))
+    }
+
+    @Test
     fun textoExcessivoEhLimitado() {
         val result = TransactionTextParser.parse("A".repeat(5_000) + " Compra R$ 200,00")
         assertNull(result)
