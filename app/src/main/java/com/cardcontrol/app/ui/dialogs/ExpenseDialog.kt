@@ -82,7 +82,7 @@ fun ExpenseDialog(
                 ?: cards.first().id
         )
     }
-    var selectedHolderId by remember(cards, holders, initialCardId) {
+    var selectedHolderId by remember(cards, holders, initialCardId, initialText) {
         mutableLongStateOf(
             cards.firstOrNull { it.id == selectedCardId }?.defaultHolderId
                 ?.takeIf { holderId -> holders.any { it.id == holderId } }
