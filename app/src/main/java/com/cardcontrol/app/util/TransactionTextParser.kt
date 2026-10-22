@@ -29,7 +29,7 @@ object TransactionTextParser {
         """(?iu)\b(?:final|terminad[oa]\s+em)\s*(?:do\s+cart[aã]o\s*)?(\d{4})\b"""
     )
     private val excludedRegex = Regex(
-        """(?iu)\b(?:estorno|estornada|estornado|reembolso|cancelad[ao]|pix\s+recebido|pagamento\s+de\s+fatura|c[oó]digo\s+de\s+verifica[cç][aã]o|token\s+de\s+acesso)\b"""
+        """(?iu)\b(?:estorno|estornada|estornado|reembolso|cancelad[ao]|pix\s+(?:recebido|enviado)|transfer[eê]ncia|boleto|pagamento\s+de\s+fatura|c[oó]digo\s+de\s+verifica[cç][aã]o|token\s+de\s+acesso)\b"""
     )
     private val trailingCardRegex = Regex(
         """(?iu)\s+(?:com\s+(?:o\s+)?cart[aã]o|cart[aã]o\s+final|final\s+\d{4}|em\s+\d{1,2}x|parcelad[ao]\s+em).*"""
