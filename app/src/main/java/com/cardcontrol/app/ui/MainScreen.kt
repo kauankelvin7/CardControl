@@ -109,7 +109,9 @@ fun MainScreen(
     viewModel: MainViewModel,
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeModeChange: (ThemeMode) -> Unit = {},
-    onOpenNotificationSettings: () -> Unit
+    onOpenNotificationSettings: () -> Unit,
+    sharedReceiptText: String? = null,
+    onSharedReceiptConsumed: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsState()
     val context = LocalContext.current
@@ -126,6 +128,8 @@ fun MainScreen(
         themeMode = themeMode,
         onThemeModeChange = onThemeModeChange,
         onOpenNotificationSettings = onOpenNotificationSettings,
+        sharedReceiptText = sharedReceiptText,
+        onSharedReceiptConsumed = onSharedReceiptConsumed,
         onChangeMonth = { offset -> viewModel.changeMonth(offset) },
         onSelectMonthYear = { month, year -> viewModel.selectMonthYear(month, year) },
         onToggleRecurringCharge = { id, active -> viewModel.setRecurringChargeActive(id, active) },
@@ -182,6 +186,8 @@ fun MainScreenContent(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     onThemeModeChange: (ThemeMode) -> Unit = {},
     onOpenNotificationSettings: () -> Unit = {},
+    sharedReceiptText: String? = null,
+    onSharedReceiptConsumed: () -> Unit = {},
     onChangeMonth: (Long) -> Unit = {},
     onSelectMonthYear: (Int, Int) -> Unit = { _, _ -> },
     onToggleRecurringCharge: (Long, Boolean) -> Unit = { _, _ -> },
@@ -233,6 +239,7 @@ fun MainScreenContent(
 
     var showExpenseDialog by remember { mutableStateOf(false) }
     var expenseInitialCardId by remember { mutableStateOf<Long?>(null) }
+    var expenseInitialText by remember { mutableStateOf("") }
     var showPaymentDialog by remember { mutableStateOf(false) }
     var showHolderDialog by remember { mutableStateOf(false) }
     var showCardDialog by remember { mutableStateOf(false) }
@@ -246,6 +253,21 @@ fun MainScreenContent(
         } else {
             expenseInitialCardId = initialCardId
             showExpenseDialog = true
+        }
+    }
+
+    // O usuário decide compartilhar ou colar. A sugestão apenas abre o formulário revisável.
+    LaunchedEffect(sharedReceiptText, state.isInitializing, state.cards.size, state.holders.size) {
+        if (!sharedReceiptText.isNullOrBlank() && !state.isInitializing) {
+            if (state.cards.isNotEmpty() && state.holders.isNotEmpty()) {
+                expenseInitialText = sharedReceiptText
+                selectedTab = 0
+                showSettingsScreen = false
+                requestExpenseDialog(null)
+            } else {
+                snackbarHostState.showSnackbar("Cadastre ao menos um cartão e uma pessoa para revisar a compra compartilhada.")
+            }
+            onSharedReceiptConsumed()
         }
     }
 
@@ -800,14 +822,17 @@ fun MainScreenContent(
             cards = state.cards,
             holders = state.holders,
             initialCardId = expenseInitialCardId,
+            initialText = expenseInitialText,
             onDismissRequest = {
                 showExpenseDialog = false
                 expenseInitialCardId = null
+                expenseInitialText = ""
             },
             onConfirm = { cardId, holderId, merchant, amountCents, parcels ->
                 onAddExpense(cardId, holderId, merchant, amountCents, parcels)
                 showExpenseDialog = false
                 expenseInitialCardId = null
+                expenseInitialText = ""
             }
         )
     }
