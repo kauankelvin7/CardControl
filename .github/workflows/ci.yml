@@ -46,7 +46,7 @@ jobs:
           java-version: "17"
 
       - name: Set up Gradle and validate the Wrapper
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
 
       - name: Run unit tests
         run: ./gradlew testDebugUnitTest --no-daemon --console=plain --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process
@@ -78,7 +78,7 @@ jobs:
           java-version: "17"
 
       - name: Set up Gradle and validate the Wrapper
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
 
       - name: Run Android Lint
         run: ./gradlew lintDebug --no-daemon --console=plain --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process
@@ -112,7 +112,7 @@ jobs:
           java-version: "17"
 
       - name: Set up Gradle and validate the Wrapper
-        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6
+        uses: gradle/actions/setup-gradle@8da46b539cd8fe6ab27ca75128919a18d757604c
 
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon --console=plain --max-workers=2 -Pkotlin.compiler.execution.strategy=in-process
